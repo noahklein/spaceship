@@ -40,6 +40,7 @@ init :: proc(size: int) {
 deinit :: proc() {
     delete(bodies)
     delete(colors)
+    delete(borders)
 
     for body in bodies {
         delete(body.vertices)
