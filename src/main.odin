@@ -9,7 +9,7 @@ import rl "vendor:raylib"
 import "physics"
 import "ngui"
 
-density : f32
+colors: [dynamic]rl.Color
 
 main :: proc() {
        when ODIN_DEBUG {
@@ -44,16 +44,15 @@ main :: proc() {
         rl.ClearBackground(rl.BLACK)
     rl.EndDrawing()
 
-    camera := rl.Camera2D{ zoom = 1, offset = screen_size() / 2 }
+    camera := rl.Camera2D{ zoom = 2, offset = screen_size() / 2 }
 
-    physics.init(20)
+    physics.init(10)
     defer physics.deinit()
 
     when ODIN_DEBUG {
         ngui.init()
         defer ngui.deinit()
     }
-
 
     bg_texture := gen_star_bg_texture()
     bg_pos := rl.Vector2{-f32(bg_texture.width) / 2, -f32(bg_texture.height) / 2}
@@ -66,8 +65,6 @@ main :: proc() {
         dt := rl.GetFrameTime()
         cam_velocity := get_cam_movement()
         camera.target += cam_velocity * dt
-
-
 
         rl.BeginDrawing()
         defer rl.EndDrawing()
@@ -84,7 +81,6 @@ main :: proc() {
         }
     }
 }
-
 
 draw_gui :: proc(camera: ^rl.Camera2D) {
     ngui.update()
@@ -134,23 +130,36 @@ gen_star_bg_texture :: proc() -> rl.Texture {
 
     for x in 0..<stars_img.width do for y in 0..<stars_img.height {
         if rand.float32() < 0.999 do continue
-        color := rand_color({220, 220, 220, 150}, rl.WHITE)
+        color := rand_color({190, 220, 220, 150}, rl.WHITE)
         rl.ImageDrawPixel(&stars_img, x, y, color)
 
         // Poor man's bloom.
-        D :: 3 // bloom distance
+        D :: 4 // bloom distance
         for i in -D..=D do for j in -D..=D {
             if i == 0 && j == 0 do continue
 
             x := x + i32(i)
             y := y + i32(j)
+            if x < 0 || x >= stars_img.width ||
+               y < 0 || y >= stars_img.height {
+                continue
+            }
 
             sqr_dist := i*i + j*j
             color := color
             color.a /= u8(sqr_dist)
-            rl.ImageDrawPixel(&stars_img, x, y, color)
+            existing_color := rl.GetImageColor(stars_img, x, y)
+            rl.ImageDrawPixel(&stars_img, x, y, add_colors(color, existing_color))
         }
     }
 
     return rl.LoadTextureFromImage(stars_img)
+}
+
+add_colors :: proc(a, b: rl.Color) -> rl.Color {
+    a := linalg.array_cast(a, i32)
+    b := linalg.array_cast(b, i32)
+
+    c := linalg.clamp(a + b, 0, 255)
+    return rl.Color(linalg.array_cast(c, u8))
 }
