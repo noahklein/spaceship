@@ -166,6 +166,26 @@ project_circle :: proc(center: rl.Vector2, radius: f32, axis: rl.Vector2) -> (lo
     return min(low, high), max(low, high)
 }
 
+// Axis-aligned bounding box, for fast broad-phase filtering.
+AABB :: struct { min, max: rl.Vector2 }
+
+get_aabb :: proc(b: Body) -> AABB {
+    rmin: rl.Vector2 = 1e9
+    rmax: rl.Vector2 = -1e9
+    switch s in b.shape {
+        case Circle:
+            rmin = b.pos - s.radius
+            rmax = b.pos + s.radius
+        case Box:
+            for v in b.transformed {
+                rmin = linalg.min(rmin, v)
+                rmax = linalg.max(rmax, v)
+            }
+    }
+
+    return {rmin, rmax}
+}
+
 // A polygon's center is the arithmetic mean of the vertices.
 polygon_center :: #force_inline proc(verts: []rl.Vector2) -> (mean: rl.Vector2) {
     for v in verts do mean += v

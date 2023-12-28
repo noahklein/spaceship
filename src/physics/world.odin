@@ -1,9 +1,10 @@
 package physics
 
-import "core:fmt"
 import "core:math/linalg"
 import "core:math/rand"
 import  rl "vendor:raylib"
+
+import "../rlutil"
 
 MIN_BODY_SIZE  :: 0.01 * 0.01
 MAX_BODY_SIZE :: 64 * 64 * 10
@@ -30,15 +31,6 @@ init :: proc(size: int, bounds: rl.Vector2) {
     reserve(&borders, size)
 
 
-    // for i in 0..<size-1 {
-    //     body := rand_body()
-    //     for i == 0 && body.inv_mass == 0 do body = rand_body()
-
-    //     color := rand_color(rl.GREEN, rl.BLUE) if !body.is_static else rl.RED
-    //     border := rl.WHITE if !body.is_static else rl.YELLOW
-
-    //     append_body(body, color, border)
-    // }
     player_body := new_circle(0, 2, 1, false)
     append_body(player_body, rl.WHITE, rl.ORANGE)
 
@@ -58,7 +50,7 @@ deinit :: proc() {
     }
 }
 
-draw :: proc() {
+draw :: proc(debug: bool) {
     for &body, i in bodies {
         color := colors[i]
         border_color := borders[i]
@@ -72,10 +64,14 @@ draw :: proc() {
             // Vertices are clockwise from top-left.
             rl.DrawTriangle(vs[0], vs[1], vs[2], color)
             rl.DrawTriangle(vs[0], vs[2], vs[3], color)
-            rl.DrawLineV(vs[0], vs[1], border_color)
-            rl.DrawLineV(vs[1], vs[2], border_color)
-            rl.DrawLineV(vs[2], vs[3], border_color)
-            rl.DrawLineV(vs[3], vs[0], border_color)
+
+            rlutil.DrawPolygonLines(vs, border_color)
+        }
+
+        if debug {
+            pos, size := body.aabb.min, body.aabb.max - body.aabb.min
+            aabb_rect := rl.Rectangle{pos.x, pos.y, size.x, size.y}
+            rl.DrawRectangleLinesEx(aabb_rect, 1, rl.LIME)
         }
     }
 }
@@ -111,6 +107,9 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
         else if body.pos.y >  bounds.y do body.pos.y = -bounds.y
     }
 
+    // Update AABBs for broad-phase.
+    for &b in bodies do b.aabb = get_aabb(b)
+
     for &a_body, i in bodies[:len(bodies)-1] do for &b_body in bodies[i+1:] {
         hit := collision_check(&a_body, &b_body) or_continue
 
@@ -136,25 +135,6 @@ append_body :: #force_inline proc(body: Body, color, border: rl.Color) {
     append(&bodies, body)
     append(&colors, color)
     append(&borders, border)
-}
-
-rand_body :: proc() -> Body {
-    WIDTH  :: 200*CELL_SIZE
-    HEIGHT :: 200*CELL_SIZE
-    pos := rl.Vector2{
-        random(0, WIDTH)  - WIDTH/2,
-        random(0, HEIGHT) - HEIGHT/2,
-    }
-    density := f32(1)
-    is_static := rand.float32() < 0.5
-
-    if rand.float32() < 0.5 {
-        return new_circle(pos, random(2, 5), density, is_static)
-    }
-
-    w := random(2, 10)
-    h := random(2, 10)
-    return new_box(pos, {w, h}, density, is_static)
 }
 
 rand_color :: proc(low := rl.BLACK, high := rl.WHITE) -> rl.Color {

@@ -21,6 +21,7 @@ Body :: struct{
     mass, inv_mass, density: f32,
     restitution: f32,
     shape: Shape,
+    aabb: AABB,
 
     vertices:    [dynamic]rl.Vector2, // Circles have no vertices.
     transformed: [dynamic]rl.Vector2,

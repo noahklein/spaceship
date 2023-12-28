@@ -23,7 +23,7 @@ draw_gui :: proc(camera: ^rl.Camera2D) {
             ngui.float(&player.rot_vel, label = "Rot Vel")
         }
 
-        if ngui.flex_row({0.2, 0.2, 0.2, 0.2}) {
+        if ngui.flex_row({0.2, 0.2, 0.2, 0.2, 0.2}) {
             ngui.slider(&timescale, 0, 10, label = "Timescale")
             if ngui.button("Play" if timescale == 0 else "Pause") || rl.IsKeyPressed(.SPACE) {
                 timescale = 1 if timescale == 0 else 0
@@ -31,6 +31,10 @@ draw_gui :: proc(camera: ^rl.Camera2D) {
             ngui.slider(&physics.FRICTION, 0, 0.3, label = "Friction")
 
             ngui.arrow(&physics.GRAVITY, "Gravity")
+        }
+
+        if ngui.flex_row({0.2}) {
+            ngui.text("Bodies: %v", len(physics.bodies))
         }
     }
 }
