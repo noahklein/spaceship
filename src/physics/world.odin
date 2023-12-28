@@ -12,6 +12,9 @@ MAX_DENSITY :: 21.4 // Density of platinum
 
 CELL_SIZE :: 1
 
+FIXED_DT :: 1.0 / 120.0
+dt_acc: f32
+
 bodies: [dynamic]Body
 colors: [dynamic]rl.Color
 
@@ -45,10 +48,31 @@ draw :: proc() {
     }
 }
 
-update :: proc(dt: f32) {
+update :: proc(dt: f32, bounds: rl.Vector2) {
+    dt_acc += dt
+    for dt_acc >= FIXED_DT {
+        dt_acc -= FIXED_DT
+        fixed_update(FIXED_DT, bounds)
+    }
+}
+
+fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
     for &body in bodies {
         body.pos += body.vel * dt
         body.rot += body.rot_vel * dt
+
+        if      body.pos.x < -bounds.x        do body.pos.x = bounds.x
+        else if body.pos.x > bounds.x do body.pos.x = -bounds.x
+        if      body.pos.y < -bounds.y        do body.pos.y = bounds.y
+        else if body.pos.y > bounds.y do body.pos.y = -bounds.y
+
+    }
+
+    for &a_body, i in bodies[:len(bodies)-1] do for &b_body in bodies[i:] {
+        hit := collision_check(a_body, b_body) or_continue
+
+        a_body.vel -= hit.normal * hit.depth/2
+        b_body.vel += hit.normal * hit.depth/2
     }
 }
 
@@ -61,7 +85,7 @@ rand_body :: proc() -> Body {
     }
     density := random(MIN_DENSITY, MAX_DENSITY)
 
-    if rand.float32() < 0.5 {
+    if rand.float32() < 2 {
         return new_circle(pos, random(1, 5), density)
     }
 
