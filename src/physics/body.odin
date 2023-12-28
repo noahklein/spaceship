@@ -11,7 +11,7 @@ Box    :: struct { size: rl.Vector2 }
 BOX_TRIANGLE_INDICES :: [?]int{0, 1, 2, 0, 2, 3}
 
 Body :: struct{
-    pos, vel: rl.Vector2,
+    pos, vel, force: rl.Vector2,
     rot, rot_vel: f32,
 
     is_static: bool,

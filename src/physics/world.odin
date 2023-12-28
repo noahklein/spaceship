@@ -1,5 +1,6 @@
 package physics
 
+import "core:fmt"
 import "core:math/linalg"
 import "core:math/rand"
 import  rl "vendor:raylib"
@@ -11,8 +12,10 @@ MIN_DENSITY :: 0.5  // g/cm^3; Density of water is 1
 MAX_DENSITY :: 21.4 // Density of platinum
 
 CELL_SIZE :: 1
+MAX_SPEED :: 64
 
 FRICTION: f32 = 0.01
+GRAVITY := rl.Vector2{0, -9.8}
 
 FIXED_DT :: 1.0 / 120.0
 dt_acc: f32
@@ -69,6 +72,14 @@ update :: proc(dt: f32, bounds: rl.Vector2) {
 
 fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
     for &body in bodies {
+        accel := body.force / body.mass
+        body.vel += accel * dt
+        defer body.force = 0
+
+        if length := linalg.length(body.vel); length > MAX_SPEED {
+            body.vel = linalg.normalize(body.vel) * MAX_SPEED
+        }
+
         if body.vel     != 0 do move(&body, body.vel * dt)
         if body.rot_vel != 0 do rotate(&body, body.rot_vel * dt)
 
@@ -83,10 +94,13 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
     for &a_body, i in bodies[:len(bodies)-1] do for &b_body in bodies[i+1:] {
         hit := collision_check(&a_body, &b_body) or_continue
 
-        move(&a_body, -hit.normal * hit.depth/2)
-        move(&b_body,  hit.normal * hit.depth/2)
-        // a_body.vel -= hit.normal * hit.depth/2
-        // b_body.vel += hit.normal * hit.depth/2
+        e := min(a_body.restitution, b_body.restitution) // Elasticity
+        rel_vel := (b_body.vel - a_body.vel)
+        j := -(1 + e) * linalg.dot(rel_vel, hit.normal)
+        j /= (1 / a_body.mass) + (1 / b_body.mass)
+
+        a_body.vel -= j / a_body.mass * hit.normal
+        b_body.vel += j / b_body.mass * hit.normal
     }
 }
 
@@ -97,14 +111,14 @@ rand_body :: proc() -> Body {
         random(0, WIDTH)  - WIDTH/2,
         random(0, HEIGHT) - HEIGHT/2,
     }
-    density := random(MIN_DENSITY, MAX_DENSITY)
+    density := random(1, 3)
 
     if rand.float32() < 0.5 {
-        return new_circle(pos, random(1, 5), density)
+        return new_circle(pos, random(2, 5), density)
     }
 
-    w := random(1, 10)
-    h := random(1, 10)
+    w := random(2, 10)
+    h := random(2, 10)
     return new_box(pos, {w, h}, density)
 }
 

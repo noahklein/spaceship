@@ -6,17 +6,16 @@ import "../ngui"
 import "../physics"
 
 
-SPEED :: 16
+SPEED :: 16 * 16
 
 update :: proc(dt: f32) {
     delta_vel := input()
     if delta_vel == 0 {
-        physics.bodies[0].vel *= 0.99 // Friction when not moving.
         return
     }
 
     delta_vel = linalg.normalize(delta_vel)
-    physics.bodies[0].vel += delta_vel * SPEED * dt
+    physics.bodies[0].force += delta_vel * SPEED
 }
 
 input :: proc() -> (dv: rl.Vector2) {
