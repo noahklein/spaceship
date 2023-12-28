@@ -74,10 +74,12 @@ box_vertices_init :: proc(body: ^Body, width, height: f32) {
     top := bottom + height
 
     reserve(&body.vertices, 4)
-    append(&body.vertices, rl.Vector2{left,  top})
-    append(&body.vertices, rl.Vector2{right, top})
-    append(&body.vertices, rl.Vector2{right, bottom})
-    append(&body.vertices, rl.Vector2{left,  bottom})
+    append(&body.vertices,
+        rl.Vector2{left, top},
+        rl.Vector2{right, top},
+        rl.Vector2{right, bottom},
+        rl.Vector2{left, bottom},
+    )
 }
 
 body_get_vertices :: proc(body: ^Body) -> []rl.Vector2 {

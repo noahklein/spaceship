@@ -6,7 +6,7 @@ import "core:math/rand"
 import  rl "vendor:raylib"
 
 MIN_BODY_SIZE  :: 0.01 * 0.01
-MAX_BODY_SIZE :: 64 * 64
+MAX_BODY_SIZE :: 64 * 64 * 10
 
 MIN_DENSITY :: 0.5  // g/cm^3; Density of water is 1
 MAX_DENSITY :: 21.4 // Density of platinum
@@ -15,7 +15,7 @@ CELL_SIZE :: 1
 MAX_SPEED :: 64
 
 FRICTION: f32 = 0.01
-GRAVITY := rl.Vector2{0, -9.8}
+GRAVITY := rl.Vector2{0, 9.8}
 
 FIXED_DT :: 1.0 / 120.0
 dt_acc: f32
@@ -24,17 +24,27 @@ bodies:  [dynamic]Body
 colors:  [dynamic]rl.Color
 borders: [dynamic]rl.Color
 
-init :: proc(size: int) {
+init :: proc(size: int, bounds: rl.Vector2) {
     reserve(&bodies, size)
     reserve(&colors, size)
+    reserve(&borders, size)
 
-    for i in 0..<size {
-        body := rand_body()
-        for i == 0 && body.inv_mass == 0 do body = rand_body()
-        append(&bodies, body)
-        append(&colors, rand_color(rl.GREEN, rl.BLUE) if !body.is_static else rl.RED)
-        append(&borders, rl.WHITE if !body.is_static else rl.YELLOW)
-    }
+
+    // for i in 0..<size-1 {
+    //     body := rand_body()
+    //     for i == 0 && body.inv_mass == 0 do body = rand_body()
+
+    //     color := rand_color(rl.GREEN, rl.BLUE) if !body.is_static else rl.RED
+    //     border := rl.WHITE if !body.is_static else rl.YELLOW
+
+    //     append_body(body, color, border)
+    // }
+    player_body := new_circle(0, 2, 1, false)
+    append_body(player_body, rl.WHITE, rl.ORANGE)
+
+
+    floor_body := new_box({0,  0.8*bounds.y}, {2 * bounds.x, 0.2*bounds.y}, 1, true)
+    append_body(floor_body, rl.GREEN, rl.WHITE)
 }
 
 deinit :: proc() {
@@ -78,8 +88,10 @@ update :: proc(dt: f32, bounds: rl.Vector2) {
     }
 }
 
+@(private)
 fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
     for &body in bodies {
+        body.force += GRAVITY * body.mass
         accel := body.force * body.inv_mass
         body.vel += accel * dt
         defer body.force = 0
@@ -118,6 +130,12 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
         a_body.vel -= j * a_body.inv_mass * hit.normal
         b_body.vel += j * b_body.inv_mass * hit.normal
     }
+}
+
+append_body :: #force_inline proc(body: Body, color, border: rl.Color) {
+    append(&bodies, body)
+    append(&colors, color)
+    append(&borders, border)
 }
 
 rand_body :: proc() -> Body {

@@ -15,7 +15,7 @@ collision_check :: proc(a, b: ^Body) -> (Hit, bool) {
         case Circle: return collide_circles(a.pos, b.pos, as.radius, bs.radius)
         case Box:
             verts := body_get_vertices(b)
-            hit, ok := collide_polygon_circle(verts, a.pos, as.radius)
+            hit, ok := collide_polygon_circle(verts, b.pos, a.pos, as.radius)
             hit.normal = -hit.normal
             return hit, ok
 
@@ -24,14 +24,14 @@ collision_check :: proc(a, b: ^Body) -> (Hit, bool) {
         switch bs in b.shape {
         case Circle:
             verts := body_get_vertices(a)
-            hit, ok := collide_polygon_circle(verts, b.pos, bs.radius)
+            hit, ok := collide_polygon_circle(verts, a.pos, b.pos, bs.radius)
             // hit.normal = -hit.normal
             return hit, ok
 
         case Box:
             a_verts := body_get_vertices(a)
             b_verts := body_get_vertices(b)
-            return collide_polygons(a_verts, b_verts)
+            return collide_polygons(a_verts, b_verts, a.pos, b.pos)
         }
     }
 
@@ -45,12 +45,12 @@ collide_circles :: proc(a_center, b_center: rl.Vector2, a_radius, b_radius: f32)
     if dist >= radii do return {}, false
 
     return {
-        normal = b_center - a_center,
+        normal = linalg.normalize(b_center - a_center),
         depth = radii - dist,
     }, true
 }
 
-collide_polygon_circle :: proc(poly: []rl.Vector2, center: rl.Vector2, radius: f32) -> (Hit, bool) {
+collide_polygon_circle :: proc(poly: []rl.Vector2, poly_center, center: rl.Vector2, radius: f32) -> (Hit, bool) {
     normal : rl.Vector2
     depth := f32(1e18)
 
@@ -88,7 +88,6 @@ collide_polygon_circle :: proc(poly: []rl.Vector2, center: rl.Vector2, radius: f
         normal = axis
     }
 
-    poly_center := polygon_center(poly)
     if direction := center - poly_center; linalg.dot(direction, normal) < 0 {
         normal = -normal
     }
@@ -98,9 +97,9 @@ collide_polygon_circle :: proc(poly: []rl.Vector2, center: rl.Vector2, radius: f
 }
 
 
-collide_polygons :: proc(a, b: []rl.Vector2) -> (hit: Hit, ok: bool) {
-    a_hit := _collide_polygons(a, b) or_return
-    b_hit := _collide_polygons(b, a) or_return
+collide_polygons :: proc(a, b: []rl.Vector2, a_center, b_center: rl.Vector2) -> (hit: Hit, ok: bool) {
+    a_hit := _collide_polygons(a, b, a_center, b_center) or_return
+    b_hit := _collide_polygons(b, a, b_center, a_center) or_return
 
     if a_hit.depth < b_hit.depth {
         return a_hit, true
@@ -111,7 +110,7 @@ collide_polygons :: proc(a, b: []rl.Vector2) -> (hit: Hit, ok: bool) {
 }
 
 @(private)
-_collide_polygons :: proc(a, b: []rl.Vector2) -> (Hit, bool) {
+_collide_polygons :: proc(a, b: []rl.Vector2, a_center, b_center: rl.Vector2) -> (Hit, bool) {
     normal : rl.Vector2
     depth := f32(1e9)
 
@@ -135,8 +134,6 @@ _collide_polygons :: proc(a, b: []rl.Vector2) -> (Hit, bool) {
         }
     }
 
-    a_center := polygon_center(a)
-    b_center := polygon_center(b)
     if direction := b_center - a_center; linalg.dot(direction, normal) < 0 {
         normal = -normal
     }

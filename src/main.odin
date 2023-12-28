@@ -48,8 +48,9 @@ main :: proc() {
 
     camera := rl.Camera2D{ zoom = 4, offset = screen_size() / 2 }
 
-    physics.init(50)
+    physics.init(50, camera.offset/camera.zoom)
     defer physics.deinit()
+
 
     when ODIN_DEBUG {
         ngui.init()
@@ -70,6 +71,20 @@ main :: proc() {
 
         player.update(dt)
         physics.update(dt, camera.offset/camera.zoom)
+
+        cursor := rl.GetScreenToWorld2D(rl.GetMousePosition(), camera)
+        if !ngui.want_mouse() && rl.IsMouseButtonPressed(.LEFT) {
+            size := rl.Vector2{
+                physics.random(5, 10),
+                physics.random(5, 10),
+            }
+
+            body := physics.new_box(cursor, size, 1, false)
+            physics.append_body(body, rand_color({100, 100, 100, 255}), rl.WHITE)
+        } else if !ngui.want_mouse() && rl.IsMouseButtonPressed(.RIGHT) {
+            body := physics.new_circle(cursor, physics.random(5, 10), 1, false)
+            physics.append_body(body, rand_color({100, 100, 100, 255}), rl.WHITE)
+        }
 
         rl.BeginDrawing()
         defer rl.EndDrawing()
