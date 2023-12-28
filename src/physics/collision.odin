@@ -9,6 +9,11 @@ Hit :: struct {
 }
 
 collision_check :: proc(a, b: ^Body) -> (Hit, bool) {
+    // Broad-phase check to early exit.
+    if !rl.CheckCollisionRecs(a.aabb, b.aabb) {
+        return {}, false
+    }
+
     switch as in a.shape {
     case Circle:
         switch bs in b.shape {
@@ -167,9 +172,7 @@ project_circle :: proc(center: rl.Vector2, radius: f32, axis: rl.Vector2) -> (lo
 }
 
 // Axis-aligned bounding box, for fast broad-phase filtering.
-AABB :: struct { min, max: rl.Vector2 }
-
-get_aabb :: proc(b: Body) -> AABB {
+get_aabb :: proc(b: Body) -> rl.Rectangle {
     rmin: rl.Vector2 = 1e9
     rmax: rl.Vector2 = -1e9
     switch s in b.shape {
@@ -183,7 +186,7 @@ get_aabb :: proc(b: Body) -> AABB {
             }
     }
 
-    return {rmin, rmax}
+    return {rmin.x, rmin.y, rmax.x - rmin.x, rmax.y - rmin.y}
 }
 
 // A polygon's center is the arithmetic mean of the vertices.

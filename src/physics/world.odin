@@ -53,7 +53,7 @@ deinit :: proc() {
 draw :: proc(debug: bool) {
     for &body, i in bodies {
         color := colors[i]
-        border_color := borders[i]
+        border_color := borders[i] if body.vel != 0 else rl.YELLOW
 
         switch shape in body.shape {
         case Circle:
@@ -68,11 +68,7 @@ draw :: proc(debug: bool) {
             rlutil.DrawPolygonLines(vs, border_color)
         }
 
-        if debug {
-            pos, size := body.aabb.min, body.aabb.max - body.aabb.min
-            aabb_rect := rl.Rectangle{pos.x, pos.y, size.x, size.y}
-            rl.DrawRectangleLinesEx(aabb_rect, 1, rl.LIME)
-        }
+        if debug do rl.DrawRectangleLinesEx(body.aabb, 1, rl.LIME)
     }
 }
 
@@ -90,16 +86,20 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
         body.force += GRAVITY * body.mass
         accel := body.force * body.inv_mass
         body.vel += accel * dt
+        body.vel *= 1 - FRICTION
+        // body.vel -= body.vel * FRICTION * dt
         defer body.force = 0
 
         if length := linalg.length(body.vel); length > MAX_SPEED {
             body.vel = linalg.normalize(body.vel) * MAX_SPEED
+        } else if length < linalg.F32_EPSILON {
+            body.vel = 0
         }
 
         if body.vel     != 0 do move(&body, body.vel * dt)
         if body.rot_vel != 0 do rotate(&body, body.rot_vel * dt)
 
-        body.vel -= body.vel * FRICTION * dt
+        // body.vel -= body.vel * FRICTION * dt
 
         if      body.pos.x < -bounds.x do body.pos.x =  bounds.x
         else if body.pos.x >  bounds.x do body.pos.x = -bounds.x

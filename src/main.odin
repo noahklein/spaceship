@@ -80,7 +80,6 @@ main :: proc() {
             }
 
             body := physics.new_box(cursor, size, 1, false)
-            body.rot_vel = 0.5
             physics.append_body(body, rand_color({100, 100, 100, 255}), rl.WHITE)
         } else if !ngui.want_mouse() && rl.IsMouseButtonPressed(.RIGHT) {
             body := physics.new_circle(cursor, physics.random(5, 10), 1, false)
