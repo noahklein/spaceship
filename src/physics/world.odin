@@ -31,19 +31,28 @@ init :: proc(size: int) {
 deinit :: proc() {
     delete(bodies)
     delete(colors)
+
+    for body in bodies {
+        delete(body.vertices)
+        delete(body.transformed)
+    }
 }
 
 draw :: proc() {
-    for body, i in bodies {
+    for &body, i in bodies {
         switch shape in body.shape {
         case Circle:
             rl.DrawCircleV(body.pos, shape.radius, colors[i])
             draw_circle_outline(body.pos, shape.radius, rl.WHITE)
         case Box:
-            rect := rl.Rectangle{body.pos.x, body.pos.y, shape.size.x, shape.size.y}
-            rl.DrawRectangleRec(rect, colors[i])
-            rl.DrawRectangleLinesEx(rect, 0.5, rl.WHITE)
-
+            vs := body_get_vertices(&body)
+            // Vertices are clockwise from top-left.
+            rl.DrawTriangle(vs[0], vs[1], vs[2], colors[i])
+            rl.DrawTriangle(vs[0], vs[2], vs[3], colors[i])
+            rl.DrawLineV(vs[0], vs[1], rl.WHITE)
+            rl.DrawLineV(vs[1], vs[2], rl.WHITE)
+            rl.DrawLineV(vs[2], vs[3], rl.WHITE)
+            rl.DrawLineV(vs[3], vs[0], rl.WHITE)
         }
     }
 }
@@ -58,14 +67,15 @@ update :: proc(dt: f32, bounds: rl.Vector2) {
 
 fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
     for &body in bodies {
-        body.pos += body.vel * dt
-        body.rot += body.rot_vel * dt
+        if body.vel     != 0 do move(&body, body.vel * dt)
+        if body.rot_vel != 0 do rotate(&body, body.rot_vel * dt)
 
-        if      body.pos.x < -bounds.x        do body.pos.x = bounds.x
-        else if body.pos.x > bounds.x do body.pos.x = -bounds.x
-        if      body.pos.y < -bounds.y        do body.pos.y = bounds.y
-        else if body.pos.y > bounds.y do body.pos.y = -bounds.y
+        if      body.pos.x < -bounds.x do body.pos.x =  bounds.x
+        else if body.pos.x >  bounds.x do body.pos.x = -bounds.x
+        if      body.pos.y < -bounds.y do body.pos.y =  bounds.y
+        else if body.pos.y >  bounds.y do body.pos.y = -bounds.y
 
+        rotate(&body, dt)
     }
 
     for &a_body, i in bodies[:len(bodies)-1] do for &b_body in bodies[i:] {
@@ -85,7 +95,7 @@ rand_body :: proc() -> Body {
     }
     density := random(MIN_DENSITY, MAX_DENSITY)
 
-    if rand.float32() < 2 {
+    if rand.float32() < 0.1 {
         return new_circle(pos, random(1, 5), density)
     }
 
