@@ -59,37 +59,37 @@ update :: proc() {
     assert(len(state.text_inputs) <= 32, "Using more than 32 text inputs, is this intentional?")
 }
 
-slider :: proc(val: ^f32, $low, $high: f32) {
+slider :: proc(val: ^f32, $low, $high: f32, label: cstring) {
     rect := flex_rect()
-    slider_rect(rect, val, low, high)
+    slider_rect(rect, val, low, high, label)
 }
 
-slider_rect :: proc(rect: rl.Rectangle, val: ^f32, $low, $high: f32) {
-    // @TODO: take a label.
+slider_rect :: proc(rect: rl.Rectangle, val: ^f32, $low, $high: f32, label: cstring) {
     #assert(low < high)
-    pct := val^ / (high - low)
+    label_rect, body_rect := label_split_rect(rect, label)
 
-    slider_x := rect.x + pct * rect.width - SLIDER_WIDTH / 2 // Cursor should be in center of slider control
-    slider_x  = clamp(slider_x, rect.x, rect.x + rect.width - SLIDER_WIDTH)
-    slider_rect := rl.Rectangle{slider_x, rect.y, SLIDER_WIDTH, rect.height}
+    hover := hovered(body_rect)
+    key := fmt.ctprintf("slider#%v", label)
 
-    key := fmt.ctprintf("%s#slider#%d-%d", state.panel, state.panel_row, state.panel_column)
-    if rl.CheckCollisionPointRec(state.mouse, rect) && rl.IsMouseButtonPressed(.LEFT) {
+    if hover && rl.IsMouseButtonPressed(.LEFT) {
         state.dragging = key
-        state.drag_offset = {0, 0}
     }
 
-    is_active := state.dragging == key
-    if is_active {
-        mouse_pct := (state.mouse.x - rect.x) / rect.width
-        v := mouse_pct * (high - low)
-        val^ = clamp(v, low, high)
+    active := state.dragging == key
+    if active {
+        mouse_x := clamp(state.mouse.x, body_rect.x, body_rect.x + body_rect.width)
+        pct := (mouse_x - body_rect.x) / body_rect.width
+        val^ = linalg.lerp(low, high, pct)
     }
 
-    is_hover := hovered(rect)
+    text_rect(label_rect, label)
+    rl.DrawRectangleRec(body_rect, dark_color(hover, active))
 
-    rl.DrawRectangleRec({rect.x, rect.y, rect.width, rect.height}, dark_color(is_hover, is_active))
-    rl.DrawRectangleRec(slider_rect, button_color(is_hover, is_active))
+    x := clamp(val^, low, high)
+    pct := (x - low) / (high - low)
+    x = linalg.lerp(body_rect.x, body_rect.x + body_rect.width - SLIDER_WIDTH, pct)
+    handle_rect := rl.Rectangle{x, body_rect.y, SLIDER_WIDTH, body_rect.height}
+    rl.DrawRectangleRec(handle_rect, button_color(hover, active))
 }
 
 button :: proc(label: cstring) -> bool {
