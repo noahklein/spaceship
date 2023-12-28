@@ -14,15 +14,25 @@ collision_check :: proc(a, b: ^Body) -> (Hit, bool) {
     case Circle:
         switch bs in b.shape {
         case Circle: return collide_circles(a.pos, b.pos, as.radius, bs.radius)
-        case Box: return {}, false
+        case Box:
+            verts := body_get_vertices(b)
+            hit, ok := collide_polygon_circle(verts, a.pos, as.radius)
+            hit.normal = -hit.normal
+            return hit, ok
+
         }
     case Box:
         switch bs in b.shape {
-        case Circle: return {}, false
+        case Circle:
+            verts := body_get_vertices(a)
+            hit, ok := collide_polygon_circle(verts, b.pos, bs.radius)
+            // hit.normal = -hit.normal
+            return hit, ok
+
         case Box:
             a_verts := body_get_vertices(a)
             b_verts := body_get_vertices(b)
-            return intersect_polygons(a_verts, b_verts)
+            return collide_polygons(a_verts, b_verts)
         }
     }
 
@@ -41,7 +51,68 @@ collide_circles :: proc(a_center, b_center: rl.Vector2, a_radius, b_radius: f32)
     }, true
 }
 
-intersect_polygons :: proc(a, b: []rl.Vector2) -> (Hit, bool) {
+collide_polygon_circle :: proc(poly: []rl.Vector2, center: rl.Vector2, radius: f32) -> (Hit, bool) {
+    normal : rl.Vector2
+    depth := f32(1e18)
+
+    // Loop over every edge in polygon.
+    for v1, i in poly {
+        v2 := poly[(i + 1) % len(poly)]
+        edge := v2 - v1
+
+        axis := linalg.normalize(rl.Vector2{-edge.y, edge.x}) // Normal, negative reciprical slope trick.
+        a_min, a_max := project_vertices(poly, axis)
+        b_min, b_max := project_circle(center, radius, axis)
+
+        if a_min >= b_max || b_min >= a_max {
+            return {}, false // There's a gap between the polygons on this axis.
+        }
+
+        axis_depth := min(b_max - a_min, a_max - b_min)
+        if axis_depth < depth {
+            depth  = axis_depth
+            normal = axis
+        }
+    }
+
+    cp := polygon_closest_point(center, poly)
+    axis := linalg.normalize(cp - center)
+    a_min, a_max := project_vertices(poly, axis)
+    b_min, b_max := project_circle(center, radius, axis)
+    if a_min >= b_max || b_min >= b_max {
+        return {}, false
+    }
+
+    axis_depth := min(b_max - a_min, a_max - b_min)
+    if axis_depth < depth {
+        depth = axis_depth
+        normal = axis
+    }
+
+    poly_center := polygon_center(poly)
+    if direction := center - poly_center; linalg.dot(direction, normal) < 0 {
+        normal = -normal
+    }
+
+    return {depth = depth, normal = normal}, true
+
+}
+
+
+collide_polygons :: proc(a, b: []rl.Vector2) -> (hit: Hit, ok: bool) {
+    a_hit := _collide_polygons(a, b) or_return
+    b_hit := _collide_polygons(b, a) or_return
+
+    if a_hit.depth < b_hit.depth {
+        return a_hit, true
+    }
+
+    b_hit.normal = -b_hit.normal
+    return b_hit, true
+}
+
+@(private)
+_collide_polygons :: proc(a, b: []rl.Vector2) -> (Hit, bool) {
     normal : rl.Vector2
     depth := f32(1e9)
 
@@ -65,26 +136,6 @@ intersect_polygons :: proc(a, b: []rl.Vector2) -> (Hit, bool) {
         }
     }
 
-    // No gaps found yet, do the same for polygon b.
-    for v1, i in b {
-        v2 := b[(i + 1) % len(b)]
-        edge := v2 - v1
-
-        axis := linalg.normalize(rl.Vector2{-edge.y, edge.x})
-        a_min, a_max := project_vertices(a, axis)
-        b_min, b_max := project_vertices(b, axis)
-
-        if a_min >= b_max || b_min >= a_max {
-            return {}, false
-        }
-
-        axis_depth := min(b_max - a_min, a_max - b_min)
-        if axis_depth < depth {
-            depth  = axis_depth
-            normal = axis
-        }
-    }
-
     a_center := polygon_center(a)
     b_center := polygon_center(b)
     if direction := b_center - a_center; linalg.dot(direction, normal) < 0 {
@@ -99,7 +150,7 @@ intersect_polygons :: proc(a, b: []rl.Vector2) -> (Hit, bool) {
 }
 
 project_vertices :: proc(verts: []rl.Vector2, axis: rl.Vector2) -> (low, high: f32) {
-    low = 1e9
+    low = 1e18
     high = -high
 
     for v in verts {
@@ -111,8 +162,30 @@ project_vertices :: proc(verts: []rl.Vector2, axis: rl.Vector2) -> (low, high: f
     return
 }
 
+project_circle :: proc(center: rl.Vector2, radius: f32, axis: rl.Vector2) -> (low, high: f32) {
+    dir := axis * radius
+    low  = linalg.dot(center - dir, axis)
+    high = linalg.dot(center + dir, axis)
+
+    return min(low, high), max(low, high)
+}
+
 // A polygon's center is the arithmetic mean of the vertices.
-polygon_center :: proc(verts: []rl.Vector2) -> (mean: rl.Vector2) {
+polygon_center :: #force_inline proc(verts: []rl.Vector2) -> (mean: rl.Vector2) {
     for v in verts do mean += v
     return mean / f32(len(verts))
+}
+
+// Closest vertex on a polygon to a circle.
+polygon_closest_point :: #force_inline proc(circle_center: rl.Vector2, verts: []rl.Vector2) -> (cp: rl.Vector2) {
+    min_dist := f32(1e18)
+    for v in verts {
+        dist := linalg.distance(v, circle_center)
+        if dist < min_dist {
+            min_dist = dist
+            cp = v
+        }
+    }
+
+    return
 }

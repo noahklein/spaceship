@@ -24,11 +24,12 @@ draw_gui :: proc(camera: ^rl.Camera2D) {
             ngui.float(&player.rot_vel, label = "Rot Vel")
         }
 
-        if ngui.flex_row({0.25, 0.25}) {
+        if ngui.flex_row({0.25, 0.25, 0.25}) {
             ngui.float(&timescale, min = 0, max = 10, label = "Timescale")
             if ngui.button("Play" if timescale == 0 else "Pause") || rl.IsKeyPressed(.SPACE) {
                 timescale = 1 if timescale == 0 else 0
             }
+            ngui.float(&physics.FRICTION, min = 0.5, max = 1, step = 0.001, label = "Friction")
         }
     }
 }

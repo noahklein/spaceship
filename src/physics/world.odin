@@ -12,6 +12,8 @@ MAX_DENSITY :: 21.4 // Density of platinum
 
 CELL_SIZE :: 1
 
+FRICTION: f32 = 0.99
+
 FIXED_DT :: 1.0 / 120.0
 dt_acc: f32
 
@@ -70,7 +72,7 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
         if body.vel     != 0 do move(&body, body.vel * dt)
         if body.rot_vel != 0 do rotate(&body, body.rot_vel * dt)
 
-        body.vel *= 0.99
+        body.vel *= FRICTION
 
         if      body.pos.x < -bounds.x do body.pos.x =  bounds.x
         else if body.pos.x >  bounds.x do body.pos.x = -bounds.x
@@ -81,10 +83,10 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
     for &a_body, i in bodies[:len(bodies)-1] do for &b_body in bodies[i+1:] {
         hit := collision_check(&a_body, &b_body) or_continue
 
-        // move(&a_body, -hit.normal * hit.depth/2)
-        // move(&b_body,  hit.normal * hit.depth/2)
-        a_body.vel -= hit.normal * hit.depth/2
-        b_body.vel += hit.normal * hit.depth/2
+        move(&a_body, -hit.normal * hit.depth/2)
+        move(&b_body,  hit.normal * hit.depth/2)
+        // a_body.vel -= hit.normal * hit.depth/2
+        // b_body.vel += hit.normal * hit.depth/2
     }
 }
 
@@ -97,7 +99,7 @@ rand_body :: proc() -> Body {
     }
     density := random(MIN_DENSITY, MAX_DENSITY)
 
-    if rand.float32() < -0.1 {
+    if rand.float32() < 0.5 {
         return new_circle(pos, random(1, 5), density)
     }
 
