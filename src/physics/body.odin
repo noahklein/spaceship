@@ -53,6 +53,7 @@ new_box :: proc(pos: rl.Vector2, size: rl.Vector2, density: f32) -> (body: Body)
         mass = area * density,
         restitution = 1,
         shape = Box{ size },
+        needs_transform_update =  true,
     }
     box_vertices_init(&body, size.x, size.y)
     resize(&body.transformed, 4)
@@ -75,6 +76,8 @@ box_vertices_init :: proc(body: ^Body, width, height: f32) {
 
 body_get_vertices :: proc(body: ^Body) -> []rl.Vector2 {
     if body.needs_transform_update {
+        body.needs_transform_update = false
+
         trans := transform_init(body.pos, body.rot)
         for &vtx, i in body.vertices {
             body.transformed[i] = transform_apply(vtx, trans)

@@ -11,7 +11,7 @@ import "player"
 import "ngui"
 
 colors: [dynamic]rl.Color
-timescale: f32
+timescale: f32 = 1
 
 main :: proc() {
        when ODIN_DEBUG {
@@ -48,7 +48,7 @@ main :: proc() {
 
     camera := rl.Camera2D{ zoom = 4, offset = screen_size() / 2 }
 
-    physics.init(40)
+    physics.init(20)
     defer physics.deinit()
 
     when ODIN_DEBUG {
