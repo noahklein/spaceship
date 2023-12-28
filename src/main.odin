@@ -2,14 +2,14 @@ package main
 
 import "core:fmt"
 import "core:mem"
+import "core:math/linalg"
 import "core:math/rand"
 import rl "vendor:raylib"
 
+import "physics"
 import "ngui"
 
 density : f32
-img: rl.Image
-texture : rl.Texture
 
 main :: proc() {
        when ODIN_DEBUG {
@@ -39,44 +39,26 @@ main :: proc() {
     rl.InitWindow(1600, 900, "Terminalia")
     defer rl.CloseWindow()
 
+    // Before we do anything, clear the screen to avoid transparent windows.
+    rl.BeginDrawing()
+        rl.ClearBackground(rl.BLACK)
+    rl.EndDrawing()
+
     camera := rl.Camera2D{ zoom = 1, offset = screen_size() / 2 }
+
+    physics.init(20)
+    defer physics.deinit()
 
     when ODIN_DEBUG {
         ngui.init()
         defer ngui.deinit()
     }
 
-    img := rl.GenImageColor(3000, 3000, rl.BLANK)
-    defer rl.UnloadImage(img)
-    for x in 0..<img.width {
-        for y in 0..<img.height {
-            if rand.float32() > 0.999 {
-                color :=rand_color(rl.WHITE - {50, 50, 50, 100}, rl.WHITE - {0, 0, 0, 50})
-                rl.ImageDrawPixel(&img, x, y, color)
 
-                // Poor man's bloom.
-                for i in -1..=1 {
-                    for j in -1..=1 {
-                        if i == 0 && j ==0 do continue
-
-                        x := x + i32(i)
-                        y := y + i32(j)
-                        rl.ImageDrawPixel(&img, x, y, color / 10)
-                    }
-                }
-            }
-        }
-    }
-
-
-
-    texture := rl.LoadTextureFromImage(img)
-    camera.target = {f32(texture.width) / 2, f32(texture.height) / 2}
+    bg_texture := gen_star_bg_texture()
+    bg_pos := rl.Vector2{-f32(bg_texture.width) / 2, -f32(bg_texture.height) / 2}
 
     rl.SetTargetFPS(120)
-    rl.BeginDrawing()
-    rl.ClearBackground(rl.BLACK)
-    rl.EndDrawing()
 
     for !rl.WindowShouldClose() {
         defer free_all(context.temp_allocator)
@@ -89,30 +71,29 @@ main :: proc() {
 
         rl.BeginDrawing()
         defer rl.EndDrawing()
-        if cam_velocity == 0{
-            rl.ClearBackground(rl.BLACK)
-        }
+        rl.ClearBackground(rl.BLACK)
 
         rl.BeginMode2D(camera)
-            rl.DrawTextureV(texture, 0, rl.WHITE)
+            rl.DrawTextureV(bg_texture, bg_pos, rl.WHITE)
+            physics.draw()
         rl.EndMode2D()
 
         when ODIN_DEBUG {
             rl.DrawFPS(rl.GetScreenWidth() - 80, 0)
-            draw_gui(camera)
+            draw_gui(&camera)
         }
     }
 }
 
 
-draw_gui :: proc(camera: rl.Camera2D) {
+draw_gui :: proc(camera: ^rl.Camera2D) {
     ngui.update()
     if ngui.begin_panel("Game", {0, 0, 400, 0}) {
-        if ngui.flex_row({0.5, 0.5}) {
-            ngui.float(&density, label = "Density")
-            if ngui.button("Regenerate") {
-
-            }
+        if ngui.flex_row({0.2, 0.4, 0.2, 0.2}) {
+            ngui.text("Camera")
+            ngui.vec2(&camera.target, label = "Target")
+            ngui.float(&camera.zoom, min = 0.1, max = 10, label = "Zoom")
+            ngui.float(&camera.rotation, min = -360, max = 360, label = "Angle")
         }
     }
 }
@@ -144,4 +125,32 @@ rand_color :: proc(low := rl.BLACK, high := rl.WHITE) -> rl.Color {
         rand_u8(low.b, high.b),
         rand_u8(low.a, high.a),
     }
+}
+
+
+gen_star_bg_texture :: proc() -> rl.Texture {
+    stars_img := rl.GenImageColor(2500, 2500, rl.BLANK)
+    defer rl.UnloadImage(stars_img)
+
+    for x in 0..<stars_img.width do for y in 0..<stars_img.height {
+        if rand.float32() < 0.999 do continue
+        color := rand_color({220, 220, 220, 150}, rl.WHITE)
+        rl.ImageDrawPixel(&stars_img, x, y, color)
+
+        // Poor man's bloom.
+        D :: 3 // bloom distance
+        for i in -D..=D do for j in -D..=D {
+            if i == 0 && j == 0 do continue
+
+            x := x + i32(i)
+            y := y + i32(j)
+
+            sqr_dist := i*i + j*j
+            color := color
+            color.a /= u8(sqr_dist)
+            rl.ImageDrawPixel(&stars_img, x, y, color)
+        }
+    }
+
+    return rl.LoadTextureFromImage(stars_img)
 }
