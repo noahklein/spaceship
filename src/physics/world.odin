@@ -12,7 +12,7 @@ MAX_DENSITY :: 21.4 // Density of platinum
 
 CELL_SIZE :: 1
 
-FRICTION: f32 = 0.99
+FRICTION: f32 = 0.01
 
 FIXED_DT :: 1.0 / 120.0
 dt_acc: f32
@@ -72,7 +72,7 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
         if body.vel     != 0 do move(&body, body.vel * dt)
         if body.rot_vel != 0 do rotate(&body, body.rot_vel * dt)
 
-        body.vel *= FRICTION
+        body.vel -= body.vel * FRICTION * dt
 
         if      body.pos.x < -bounds.x do body.pos.x =  bounds.x
         else if body.pos.x >  bounds.x do body.pos.x = -bounds.x
