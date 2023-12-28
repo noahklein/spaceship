@@ -21,8 +21,7 @@ ACTIVE_BUTTON_COLOR  :: rl.SKYBLUE
 
 INPUT_PAD :: 2
 
-SLIDER_WIDTH :: 16
-
+@(require_results)
 button_color :: proc(hover, active: bool, press := false) -> rl.Color {
     mod: rl.Color = {10, 10, 0, 0} if press else 0
     if active {
@@ -33,6 +32,7 @@ button_color :: proc(hover, active: bool, press := false) -> rl.Color {
     return DEFAULT_BUTTON_COLOR + mod
 }
 
+@(require_results)
 dark_color :: proc(hover, active: bool) -> rl.Color {
     if active {
         return {80, 80, 80, 255}
@@ -42,10 +42,12 @@ dark_color :: proc(hover, active: bool) -> rl.Color {
     return rl.BLACK
 }
 
+@(require_results)
 title_color :: proc(active: bool) -> rl.Color {
     return rl.RED if active else rl.MAROON
 }
 
+@(require_results)
 input_color :: proc(hover, active: bool) -> rl.Color {
     color := dark_color(hover, active)
     if hover && rl.IsMouseButtonDown(.LEFT) {
@@ -54,7 +56,17 @@ input_color :: proc(hover, active: bool) -> rl.Color {
     return color
 }
 
+@(require_results)
+slider_color :: proc(hover, active: bool, pct: f32) -> rl.Color {
+    mod : rl.Color
+    if hover  do mod += {20, 20, 20, 0}
+    if active do mod += {20, 20, 20, 0}
+
+    return lerp_color({ 0, 121, 190, 255 }, {0, 140, 210, 255}, pct) + mod
+}
+
 // Blinks between white and non_white.
+@(require_results)
 cursor_color :: proc(non_white := rl.SKYBLUE) -> rl.Color {
     now := rl.GetTime()
     t := math.cos(2 * (now - state.last_keypress_time))
@@ -63,6 +75,7 @@ cursor_color :: proc(non_white := rl.SKYBLUE) -> rl.Color {
     return lerp_color(rl.WHITE, non_white, f32(t))
 }
 
+@(require_results)
 lerp_color :: proc(ac, bc: rl.Color, t: f32) -> rl.Color {
     a := linalg.array_cast(ac, f32)
     b := linalg.array_cast(bc, f32)

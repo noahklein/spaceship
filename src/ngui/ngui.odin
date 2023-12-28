@@ -87,9 +87,12 @@ slider_rect :: proc(rect: rl.Rectangle, val: ^f32, $low, $high: f32, label: cstr
 
     x := clamp(val^, low, high)
     pct := (x - low) / (high - low)
-    x = linalg.lerp(body_rect.x, body_rect.x + body_rect.width - SLIDER_WIDTH, pct)
-    handle_rect := rl.Rectangle{x, body_rect.y, SLIDER_WIDTH, body_rect.height}
-    rl.DrawRectangleRec(handle_rect, button_color(hover, active))
+    x = linalg.lerp(f32(0), body_rect.width, pct)
+    handle_rect := rl.Rectangle{body_rect.x, body_rect.y, x, body_rect.height}
+
+    rl.DrawRectangleRec(handle_rect, slider_color(hover, active, pct))
+    val_label := fmt.ctprintf("%.2f", val^)
+    text_rect(body_rect, val_label, color = TEXT_COLOR, align = .Center)
 }
 
 button :: proc(label: cstring) -> bool {
