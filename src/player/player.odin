@@ -11,6 +11,7 @@ SPEED :: 16 * 16
 update :: proc(dt: f32) {
     delta_vel := input()
     if delta_vel == 0 {
+        physics.bodies[0].vel -= physics.bodies[0].vel * 0.1 * dt
         return
     }
 

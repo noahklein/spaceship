@@ -48,7 +48,7 @@ main :: proc() {
 
     camera := rl.Camera2D{ zoom = 4, offset = screen_size() / 2 }
 
-    physics.init(20)
+    physics.init(50)
     defer physics.deinit()
 
     when ODIN_DEBUG {

@@ -20,16 +20,20 @@ GRAVITY := rl.Vector2{0, -9.8}
 FIXED_DT :: 1.0 / 120.0
 dt_acc: f32
 
-bodies: [dynamic]Body
-colors: [dynamic]rl.Color
+bodies:  [dynamic]Body
+colors:  [dynamic]rl.Color
+borders: [dynamic]rl.Color
 
 init :: proc(size: int) {
     reserve(&bodies, size)
     reserve(&colors, size)
 
-    for _ in 0..<size {
-        append(&bodies, rand_body())
-        append(&colors, rand_color())
+    for i in 0..<size {
+        body := rand_body()
+        for i == 0 && body.inv_mass == 0 do body = rand_body()
+        append(&bodies, body)
+        append(&colors, rand_color(rl.GREEN, rl.BLUE) if !body.is_static else rl.RED)
+        append(&borders, rl.WHITE if !body.is_static else rl.YELLOW)
     }
 }
 
@@ -45,19 +49,22 @@ deinit :: proc() {
 
 draw :: proc() {
     for &body, i in bodies {
+        color := colors[i]
+        border_color := borders[i]
+
         switch shape in body.shape {
         case Circle:
-            rl.DrawCircleV(body.pos, shape.radius, colors[i])
-            draw_circle_outline(body.pos, shape.radius, rl.WHITE)
+            rl.DrawCircleV(body.pos, shape.radius, color)
+            draw_circle_outline(body.pos, shape.radius, border_color)
         case Box:
             vs := body_get_vertices(&body)
             // Vertices are clockwise from top-left.
-            rl.DrawTriangle(vs[0], vs[1], vs[2], colors[i])
-            rl.DrawTriangle(vs[0], vs[2], vs[3], colors[i])
-            rl.DrawLineV(vs[0], vs[1], rl.WHITE)
-            rl.DrawLineV(vs[1], vs[2], rl.WHITE)
-            rl.DrawLineV(vs[2], vs[3], rl.WHITE)
-            rl.DrawLineV(vs[3], vs[0], rl.WHITE)
+            rl.DrawTriangle(vs[0], vs[1], vs[2], color)
+            rl.DrawTriangle(vs[0], vs[2], vs[3], color)
+            rl.DrawLineV(vs[0], vs[1], border_color)
+            rl.DrawLineV(vs[1], vs[2], border_color)
+            rl.DrawLineV(vs[2], vs[3], border_color)
+            rl.DrawLineV(vs[3], vs[0], border_color)
         }
     }
 }
@@ -72,7 +79,7 @@ update :: proc(dt: f32, bounds: rl.Vector2) {
 
 fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
     for &body in bodies {
-        accel := body.force / body.mass
+        accel := body.force * body.inv_mass
         body.vel += accel * dt
         defer body.force = 0
 
@@ -94,13 +101,21 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
     for &a_body, i in bodies[:len(bodies)-1] do for &b_body in bodies[i+1:] {
         hit := collision_check(&a_body, &b_body) or_continue
 
+        if a_body.is_static && b_body.is_static do continue
+        else if a_body.is_static do move(&b_body, hit.normal*hit.depth)
+        else if b_body.is_static do move(&a_body, -hit.normal*hit.depth)
+        else {
+            move(&a_body, -hit.normal*hit.depth / 2)
+            move(&b_body,  hit.normal*hit.depth / 2)
+        }
+
         e := min(a_body.restitution, b_body.restitution) // Elasticity
         rel_vel := (b_body.vel - a_body.vel)
         j := -(1 + e) * linalg.dot(rel_vel, hit.normal)
-        j /= (1 / a_body.mass) + (1 / b_body.mass)
+        j /= a_body.inv_mass + b_body.inv_mass
 
-        a_body.vel -= j / a_body.mass * hit.normal
-        b_body.vel += j / b_body.mass * hit.normal
+        a_body.vel -= j * a_body.inv_mass * hit.normal
+        b_body.vel += j * b_body.inv_mass * hit.normal
     }
 }
 
@@ -111,20 +126,23 @@ rand_body :: proc() -> Body {
         random(0, WIDTH)  - WIDTH/2,
         random(0, HEIGHT) - HEIGHT/2,
     }
-    density := random(1, 3)
+    density := f32(1)
+    is_static := rand.float32() < 0.5
 
     if rand.float32() < 0.5 {
-        return new_circle(pos, random(2, 5), density)
+        return new_circle(pos, random(2, 5), density, is_static)
     }
 
     w := random(2, 10)
     h := random(2, 10)
-    return new_box(pos, {w, h}, density)
+    return new_box(pos, {w, h}, density, is_static)
 }
 
 rand_color :: proc(low := rl.BLACK, high := rl.WHITE) -> rl.Color {
     rand_u8 :: proc(low, high: u8) -> u8 {
+        low, high := low, high
         if low == high do return low
+        if low > high do low, high = high, low
 
         r := rand.int_max(int(high - low))
         return u8(r) + low
