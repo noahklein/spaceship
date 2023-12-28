@@ -7,6 +7,7 @@ import "core:math/rand"
 import rl "vendor:raylib"
 
 import "physics"
+import "player"
 import "ngui"
 
 colors: [dynamic]rl.Color
@@ -44,7 +45,7 @@ main :: proc() {
         rl.ClearBackground(rl.BLACK)
     rl.EndDrawing()
 
-    camera := rl.Camera2D{ zoom = 2, offset = screen_size() / 2 }
+    camera := rl.Camera2D{ zoom = 4, offset = screen_size() / 2 }
 
     physics.init(10)
     defer physics.deinit()
@@ -54,8 +55,8 @@ main :: proc() {
         defer ngui.deinit()
     }
 
-    bg_texture := gen_star_bg_texture()
-    bg_pos := rl.Vector2{-f32(bg_texture.width) / 2, -f32(bg_texture.height) / 2}
+    // bg_texture := gen_star_bg_texture(1000, 1000)
+    // bg_pos := rl.Vector2{-f32(bg_texture.width) / 2, -f32(bg_texture.height) / 2}
 
     rl.SetTargetFPS(120)
 
@@ -63,33 +64,24 @@ main :: proc() {
         defer free_all(context.temp_allocator)
 
         dt := rl.GetFrameTime()
-        cam_velocity := get_cam_movement()
-        camera.target += cam_velocity * dt
+        // cam_velocity := get_cam_movement()
+        // camera.target += cam_velocity * dt
+
+        player.update(dt)
+        physics.update(dt)
 
         rl.BeginDrawing()
         defer rl.EndDrawing()
         rl.ClearBackground(rl.BLACK)
 
         rl.BeginMode2D(camera)
-            rl.DrawTextureV(bg_texture, bg_pos, rl.WHITE)
+            // rl.DrawTextureV(bg_texture, bg_pos, rl.WHITE - {0, 0, 0, 100})
             physics.draw()
         rl.EndMode2D()
 
         when ODIN_DEBUG {
             rl.DrawFPS(rl.GetScreenWidth() - 80, 0)
             draw_gui(&camera)
-        }
-    }
-}
-
-draw_gui :: proc(camera: ^rl.Camera2D) {
-    ngui.update()
-    if ngui.begin_panel("Game", {0, 0, 400, 0}) {
-        if ngui.flex_row({0.2, 0.4, 0.2, 0.2}) {
-            ngui.text("Camera")
-            ngui.vec2(&camera.target, label = "Target")
-            ngui.float(&camera.zoom, min = 0.1, max = 10, label = "Zoom")
-            ngui.float(&camera.rotation, min = -360, max = 360, label = "Angle")
         }
     }
 }
@@ -124,8 +116,8 @@ rand_color :: proc(low := rl.BLACK, high := rl.WHITE) -> rl.Color {
 }
 
 
-gen_star_bg_texture :: proc() -> rl.Texture {
-    stars_img := rl.GenImageColor(2500, 2500, rl.BLANK)
+gen_star_bg_texture :: proc(width, height: i32) -> rl.Texture {
+    stars_img := rl.GenImageColor(width, height, rl.BLANK)
     defer rl.UnloadImage(stars_img)
 
     for x in 0..<stars_img.width do for y in 0..<stars_img.height {
