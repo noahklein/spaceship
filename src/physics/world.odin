@@ -107,12 +107,14 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
         else if body.pos.y >  bounds.y do body.pos.y = -bounds.y
     }
 
-    // Update AABBs for broad-phase.
+    // Update AABBs for broad-phase collision.
     for &b in bodies do b.aabb = get_aabb(b)
 
+    // Collision detection.
     for &a_body, i in bodies[:len(bodies)-1] do for &b_body in bodies[i+1:] {
         hit := collision_check(&a_body, &b_body) or_continue
 
+        // Static bodies never move.
         if a_body.is_static && b_body.is_static do continue
         else if a_body.is_static do move(&b_body, hit.normal*hit.depth)
         else if b_body.is_static do move(&a_body, -hit.normal*hit.depth)
