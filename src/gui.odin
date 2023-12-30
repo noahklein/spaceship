@@ -1,9 +1,12 @@
 package main
 
+import "core:time"
+
 import rl "vendor:raylib"
 
 import "ngui"
 import "physics"
+import "rlutil"
 
 draw_gui :: proc(camera: ^rl.Camera2D) {
     ngui.update()
@@ -33,9 +36,25 @@ draw_gui :: proc(camera: ^rl.Camera2D) {
             ngui.arrow(&physics.GRAVITY, "Gravity")
         }
 
-        if ngui.flex_row({0.2, 0.2}) {
+        if ngui.flex_row({0.2, 0.2, 0.25, 0.25}) {
             ngui.text("Bodies: %v", len(physics.bodies))
             ngui.text("Collisions: %v", len(physics.contacts))
+
+        }
+
+        total_prof := rlutil.profile_get("total")
+        if ngui.flex_row({0.5, 0.5}) {
+            physics_prof := rlutil.profile_get("physics")
+            physics_pct := 100 * dur(physics_prof.stopwatch) / dur(total_prof.stopwatch)
+            ngui.slider(&physics_pct, 0, 100, "Physics")
+
+            draw_prof := rlutil.profile_get("draw")
+            draw_pct := 100 * dur(draw_prof.stopwatch) / dur(total_prof.stopwatch)
+            ngui.slider(&draw_pct, 0, 100, "Draw")
         }
     }
+}
+
+dur :: #force_inline proc(sw: time.Stopwatch) -> f32 {
+    return f32(time.stopwatch_duration(sw))
 }

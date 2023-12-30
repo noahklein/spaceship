@@ -4,11 +4,13 @@ import "core:fmt"
 import "core:mem"
 import "core:math/linalg"
 import "core:math/rand"
+
 import rl "vendor:raylib"
 
 import "physics"
 import "player"
 import "ngui"
+import "rlutil"
 
 colors: [dynamic]rl.Color
 timescale: f32 = 1
@@ -53,6 +55,9 @@ main :: proc() {
     physics.init(50, camera.offset/camera.zoom)
     defer physics.deinit()
 
+    rlutil.profile_init(3)
+    defer rlutil.profile_deinit()
+
 
     when ODIN_DEBUG {
         ngui.init()
@@ -65,14 +70,18 @@ main :: proc() {
     rl.SetTargetFPS(120)
 
     for !rl.WindowShouldClose() {
+        rlutil.profile_begin("total")
+
         defer free_all(context.temp_allocator)
 
         dt := rl.GetFrameTime() * timescale
         // cam_velocity := get_cam_movement()
         // camera.target += cam_velocity * dt
 
-        player.update(dt)
-        physics.update(dt, camera.offset/camera.zoom)
+        if rlutil.profile_begin("physics") {
+            player.update(dt)
+            physics.update(dt, camera.offset/camera.zoom)
+        }
 
         cursor := rl.GetScreenToWorld2D(rl.GetMousePosition(), camera)
         if !ngui.want_mouse() && rl.IsMouseButtonPressed(.LEFT) {
@@ -91,6 +100,7 @@ main :: proc() {
             physics.append_body(body, rand_color({100, 100, 100, 255}), rl.WHITE)
         }
 
+        rlutil.profile_begin("draw")
         rl.BeginDrawing()
         defer rl.EndDrawing()
         rl.ClearBackground(rl.BLACK)

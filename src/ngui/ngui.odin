@@ -59,13 +59,13 @@ update :: proc() {
     assert(len(state.text_inputs) <= 32, "Using more than 32 text inputs, is this intentional?")
 }
 
-slider :: proc(val: ^f32, $low, $high: f32, label: cstring) {
+slider :: proc(val: ^f32, low, high: f32, label: cstring) {
     rect := flex_rect()
     slider_rect(rect, val, low, high, label)
 }
 
-slider_rect :: proc(rect: rl.Rectangle, val: ^f32, $low, $high: f32, label: cstring) {
-    #assert(low < high)
+slider_rect :: proc(rect: rl.Rectangle, val: ^f32, low, high: f32, label: cstring) {
+    assert(low < high)
     label_rect, body_rect := label_split_rect(rect, label)
 
     hover := hovered(body_rect)
