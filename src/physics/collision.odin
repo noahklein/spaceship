@@ -2,6 +2,7 @@ package physics
 
 import "core:math/linalg"
 import rl "vendor:raylib"
+import "../rlutil"
 
 Hit :: struct {
     normal: rl.Vector2, // Points from a to b.
@@ -232,6 +233,9 @@ find_contact_points :: proc(a_body, b_body: ^Body) -> (contact1, contact2: rl.Ve
             a_vertices := body_get_vertices(a_body)
             return contact_point_circle_polygon(b_body.pos, a_body.pos, bs.radius, a_vertices), {}, 1
         case Box:
+            a_verts := body_get_vertices(a_body)
+            b_verts := body_get_vertices(b_body)
+            return contact_point_polygons(a_body.pos, b_body.pos, a_verts, b_verts)
         }
     }
 
@@ -278,4 +282,50 @@ point_segment_distance :: proc(p, a, b: rl.Vector2) -> (sq_dist: f32, contact: r
     case:        contact = a + ab*d
     }
     return linalg.length2(contact - p), contact
+}
+
+@(private="file")
+contact_point_polygons :: proc(a_center, b_center: rl.Vector2,
+                               a_verts,  b_verts: []rl.Vector2) -> (cp1, cp2: rl.Vector2, count: int) {
+    min_sq_dist := f32(1e18)
+
+    for p in a_verts do for va, j in b_verts {
+        vb := b_verts[(j+1) % len(b_verts)]
+
+        sq_dist, contact := point_segment_distance(p, va, vb)
+
+        switch {
+        case rlutil.nearly_eq(sq_dist, min_sq_dist, 0.001):
+            if !rlutil.nearly_eq(contact, cp1, 0.001) {
+                cp2 = contact
+                count = 2
+            }
+        case sq_dist <  min_sq_dist:
+            min_sq_dist = sq_dist
+            cp1 = contact
+            count = 1
+        }
+        if sq_dist < min_sq_dist {
+        }
+    }
+
+    for p in b_verts do for va, j in a_verts {
+        vb := a_verts[(j+1) % len(b_verts)]
+
+        sq_dist, contact := point_segment_distance(p, va, vb)
+
+        switch {
+        case rlutil.nearly_eq(sq_dist, min_sq_dist, 0.001):
+            if !rlutil.nearly_eq(contact, cp1, 0.001) {
+                cp2 = contact
+                count = 2
+            }
+        case sq_dist <  min_sq_dist:
+            min_sq_dist = sq_dist
+            cp1 = contact
+            count = 1
+        }
+    }
+
+    return
 }

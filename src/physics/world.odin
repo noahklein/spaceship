@@ -78,6 +78,9 @@ draw :: proc(debug: bool) {
                 switch hit.contact_count {
                     case 0: continue
                     case 1: rl.DrawCircleV(hit.contact1, 1, rl.WHITE)
+                    case 2:
+                        rl.DrawCircleV(hit.contact1, 1, rl.WHITE)
+                        rl.DrawCircleV(hit.contact2, 1, rl.PINK)
                 }
             }
         }
@@ -149,7 +152,8 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
         })
     }
 
-    for hit in contacts {
+    // Collision resolution.
+    for hit in contacts do if false {
         a_body, b_body := hit.a_body, hit.b_body
 
         e := min(a_body.restitution, b_body.restitution) // Elasticity
