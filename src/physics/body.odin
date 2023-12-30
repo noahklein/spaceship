@@ -18,7 +18,9 @@ Body :: struct{
 
     // @TODO: These properties should probably go in a constant lookup table, unless every
     // object needs different values.
-    mass, inv_mass, density: f32,
+    mass, inv_mass: f32,
+    rot_inertia, inv_rot_inertia: f32,
+    density: f32,
     restitution: f32,
     shape: Shape,
     aabb: rl.Rectangle,
@@ -33,12 +35,17 @@ new_circle :: proc(pos: rl.Vector2, radius, density: f32, is_static: bool) -> Bo
     fmt.assertf(MIN_BODY_SIZE <= area && area <= MAX_BODY_SIZE, "Circle with invalid area: got %v, want in %v..=%v", area, MIN_BODY_SIZE, MAX_BODY_SIZE)
     fmt.assertf(MIN_DENSITY <= density && density <= MAX_DENSITY, "Circle with invalid density: got %v, want in %v..=%v", density, MIN_DENSITY, MAX_DENSITY)
 
+    mass := area*density
+    rot_inertia := body_rot_inertia(mass, Circle{ radius })
 
     return {
         pos = pos,
+
         is_static = is_static,
-        mass = area*density,
-        inv_mass = 1 / (area*density) if !is_static else 0,
+        mass = mass,
+        inv_mass = 1 / mass if !is_static else 0,
+        rot_inertia = rot_inertia,
+        inv_rot_inertia = 1 / rot_inertia if !is_static else 0,
 
         density = density,
         restitution = 1,
@@ -51,11 +58,16 @@ new_box :: proc(pos: rl.Vector2, size: rl.Vector2, density: f32, is_static: bool
     fmt.assertf(MIN_BODY_SIZE <= area && area <= MAX_BODY_SIZE, "Box with invalid area: got %v, want in %v..=%v", area, MIN_BODY_SIZE, MAX_BODY_SIZE)
     fmt.assertf(MIN_DENSITY <= density && density <= MAX_DENSITY, "Box with invalid density: got %v, want in %v..=%v", density, MIN_DENSITY, MAX_DENSITY)
 
+    mass := area*density
+    rot_inertia := body_rot_inertia(mass, Box{ size })
+
     body = Body{
         pos = pos,
         is_static = is_static,
-        mass = area * density,
-        inv_mass = 1 / (area*density) if !is_static else 0,
+        mass = mass,
+        inv_mass = 1 / mass if !is_static else 0,
+        rot_inertia = rot_inertia,
+        inv_rot_inertia = 1 / rot_inertia if !is_static else 0,
 
         density = density,
         restitution = 1,
@@ -94,4 +106,15 @@ body_get_vertices :: proc(body: ^Body) -> []rl.Vector2 {
     }
 
     return body.transformed[:]
+}
+
+body_rot_inertia :: proc(mass: f32, shape: Shape) -> f32 {
+    switch s in shape {
+    case Circle:
+        return (1/2) * mass * s.radius*s.radius
+    case Box:
+        return (1/12) * mass * (s.size.x*s.size.x + s.size.y*s.size.y)
+    }
+
+    panic("Impossible: invalid shape in body_rot_inertia")
 }

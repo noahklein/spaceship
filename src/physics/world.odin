@@ -36,9 +36,16 @@ init :: proc(size: int, bounds: rl.Vector2) {
     player_body := new_circle(0, 2, 1, false)
     append_body(player_body, rl.WHITE, rl.ORANGE)
 
-
     floor_body := new_box({0,  0.8*bounds.y}, {2 * bounds.x, 0.2*bounds.y}, 1, true)
     append_body(floor_body, rl.GREEN, rl.WHITE)
+
+    slant_right := new_box({-100, -10}, {bounds.x, 0.2*bounds.y}, 1, true)
+    rotate(&slant_right, 20*rl.DEG2RAD)
+    append_body(slant_right, rl.GREEN, rl.WHITE)
+
+    slant_left := new_box({110, -15}, {bounds.x, 0.2*bounds.y}, 1, true)
+    rotate(&slant_left, -20*rl.DEG2RAD)
+    append_body(slant_left, rl.GREEN, rl.WHITE)
 }
 
 deinit :: proc() {
@@ -153,7 +160,7 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
     }
 
     // Collision resolution.
-    for hit in contacts do if false {
+    for hit in contacts {
         a_body, b_body := hit.a_body, hit.b_body
 
         e := min(a_body.restitution, b_body.restitution) // Elasticity
