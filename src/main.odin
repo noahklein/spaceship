@@ -41,6 +41,8 @@ main :: proc() {
     rl.InitWindow(1600, 900, "Terminalia")
     defer rl.CloseWindow()
 
+    rl.rlEnableSmoothLines()
+
     // Before we do anything, clear the screen to avoid transparent windows.
     rl.BeginDrawing()
         rl.ClearBackground(rl.BLACK)
@@ -82,7 +84,10 @@ main :: proc() {
             body := physics.new_box(cursor, size, 1, false)
             physics.append_body(body, rand_color({100, 100, 100, 255}), rl.WHITE)
         } else if !ngui.want_mouse() && rl.IsMouseButtonPressed(.RIGHT) {
-            body := physics.new_circle(cursor, physics.random(5, 10), 1, false)
+            // density  := physics.random(1, 2)
+            density := f32(10)
+            radius := physics.random(2, 5)
+            body := physics.new_circle(cursor, radius, density, false)
             physics.append_body(body, rand_color({100, 100, 100, 255}), rl.WHITE)
         }
 

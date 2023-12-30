@@ -18,18 +18,20 @@ MAX_SPEED :: 64
 FRICTION: f32 = 0.01
 GRAVITY := rl.Vector2{0, 9.8}
 
-FIXED_DT :: 1.0 / 120.0
+FIXED_DT :: 1.0 / 240.0
 dt_acc: f32
 
 bodies:  [dynamic]Body
 colors:  [dynamic]rl.Color
 borders: [dynamic]rl.Color
 
+contacts: [dynamic]Manifold
+
 init :: proc(size: int, bounds: rl.Vector2) {
     reserve(&bodies, size)
     reserve(&colors, size)
     reserve(&borders, size)
-
+    reserve(&contacts, size * (size - 1))
 
     player_body := new_circle(0, 2, 1, false)
     append_body(player_body, rl.WHITE, rl.ORANGE)
@@ -43,6 +45,7 @@ deinit :: proc() {
     delete(bodies)
     delete(colors)
     delete(borders)
+    delete(contacts)
 
     for body in bodies {
         delete(body.vertices)
@@ -68,7 +71,16 @@ draw :: proc(debug: bool) {
             rlutil.DrawPolygonLines(vs, border_color)
         }
 
-        if debug do rl.DrawRectangleLinesEx(body.aabb, 1, rl.LIME)
+        if debug {
+            // rl.DrawRectangleLinesEx(body.aabb, 1, rl.LIME)
+
+            for hit in contacts {
+                switch hit.contact_count {
+                    case 0: continue
+                    case 1: rl.DrawCircleV(hit.contact1, 1, rl.WHITE)
+                }
+            }
+        }
     }
 }
 
@@ -86,14 +98,12 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
         body.force += GRAVITY * body.mass
         accel := body.force * body.inv_mass
         body.vel += accel * dt
-        body.vel *= 1 - FRICTION
+        body.vel *= 1 - FRICTION * FRICTION
         // body.vel -= body.vel * FRICTION * dt
         defer body.force = 0
 
         if length := linalg.length(body.vel); length > MAX_SPEED {
             body.vel = linalg.normalize(body.vel) * MAX_SPEED
-        } else if length < linalg.F32_EPSILON {
-            body.vel = 0
         }
 
         if body.vel     != 0 do move(&body, body.vel * dt)
@@ -108,13 +118,18 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
     }
 
     // Update AABBs for broad-phase collision.
-    for &b in bodies do b.aabb = get_aabb(b)
+    for &b in bodies do b.aabb = get_aabb(&b)
 
     // Collision detection.
+    clear(&contacts)
     for &a_body, i in bodies[:len(bodies)-1] do for &b_body in bodies[i+1:] {
+        // Broad-phase check to early-exit.
+        if !rl.CheckCollisionRecs(a_body.aabb, b_body.aabb) do continue
+
+        // Actually check collision for real.
         hit := collision_check(&a_body, &b_body) or_continue
 
-        // Static bodies never move.
+        // Move bodies to resolve collision; static bodies never move.
         if a_body.is_static && b_body.is_static do continue
         else if a_body.is_static do move(&b_body, hit.normal*hit.depth)
         else if b_body.is_static do move(&a_body, -hit.normal*hit.depth)
@@ -122,6 +137,20 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
             move(&a_body, -hit.normal*hit.depth / 2)
             move(&b_body,  hit.normal*hit.depth / 2)
         }
+
+        cp1, cp2, count := find_contact_points(&a_body, &b_body)
+        append(&contacts, Manifold{
+            a_body = &a_body, b_body = &b_body,
+            normal = hit.normal,
+            depth = hit.depth,
+            contact1 = cp1,
+            contact2 = cp2,
+            contact_count = count,
+        })
+    }
+
+    for hit in contacts {
+        a_body, b_body := hit.a_body, hit.b_body
 
         e := min(a_body.restitution, b_body.restitution) // Elasticity
         rel_vel := (b_body.vel - a_body.vel)

@@ -8,6 +8,14 @@ Hit :: struct {
     depth: f32,
 }
 
+Manifold :: struct {
+    a_body, b_body: ^Body,
+    normal: rl.Vector2,
+    depth: f32,
+    contact1, contact2: rl.Vector2,
+    contact_count: int,
+}
+
 collision_check :: proc(a, b: ^Body) -> (Hit, bool) {
     // Broad-phase check to early exit.
     if !rl.CheckCollisionRecs(a.aabb, b.aabb) {
@@ -172,7 +180,7 @@ project_circle :: proc(center: rl.Vector2, radius: f32, axis: rl.Vector2) -> (lo
 }
 
 // Axis-aligned bounding box, for fast broad-phase filtering.
-get_aabb :: proc(b: Body) -> rl.Rectangle {
+get_aabb :: proc(b: ^Body) -> rl.Rectangle {
     rmin: rl.Vector2 = 1e9
     rmax: rl.Vector2 = -1e9
     switch s in b.shape {
@@ -180,7 +188,7 @@ get_aabb :: proc(b: Body) -> rl.Rectangle {
             rmin = b.pos - s.radius
             rmax = b.pos + s.radius
         case Box:
-            for v in b.transformed {
+            for v in body_get_vertices(b) {
                 rmin = linalg.min(rmin, v)
                 rmax = linalg.max(rmax, v)
             }
@@ -207,4 +215,67 @@ polygon_closest_point :: #force_inline proc(circle_center: rl.Vector2, verts: []
     }
 
     return
+}
+
+find_contact_points :: proc(a_body, b_body: ^Body) -> (contact1, contact2: rl.Vector2, count: int) {
+    switch as in a_body.shape {
+    case Circle:
+        switch bs in b_body.shape {
+        case Circle: return contact_point_circles(a_body.pos, b_body.pos, as.radius), {}, 1
+        case Box:
+            b_vertices := body_get_vertices(b_body)
+            return contact_point_circle_polygon(a_body.pos, b_body.pos, as.radius, b_vertices), {}, 1
+        }
+    case Box:
+        switch bs in b_body.shape {
+        case Circle:
+            a_vertices := body_get_vertices(a_body)
+            return contact_point_circle_polygon(b_body.pos, a_body.pos, bs.radius, a_vertices), {}, 1
+        case Box:
+        }
+    }
+
+    // panic("unsupported shape in find_contact_points")
+    return {}, {}, 0
+}
+
+@(private="file")
+contact_point_circles :: proc(a_center, b_center: rl.Vector2, a_radius: f32) -> rl.Vector2 {
+    ab := b_center - a_center
+    return a_center + a_radius*linalg.normalize(ab)
+}
+
+@(private="file")
+contact_point_circle_polygon :: proc(a_center, b_center: rl.Vector2, a_radius: f32, b_vertices: []rl.Vector2) -> rl.Vector2 {
+    min_sq_dist := f32(1e18)
+    contact: rl.Vector2
+
+    for va, i in b_vertices {
+        vb := b_vertices[(i + 1) % len(b_vertices)]
+
+        sq_dist, cp := point_segment_distance(a_center, va, vb)
+        if sq_dist < min_sq_dist {
+            min_sq_dist = sq_dist
+            contact = cp
+        }
+    }
+
+    return contact
+}
+
+@(private="file")
+point_segment_distance :: proc(p, a, b: rl.Vector2) -> (sq_dist: f32, contact: rl.Vector2) {
+    ab := b - a
+    ap := p - a
+
+    proj := linalg.dot(ap, ab)
+    ab_sqr_len := linalg.length2(ab)
+
+    d := proj / ab_sqr_len
+    switch {
+    case d <= 0: contact = a
+    case d >= 1: contact = b
+    case:        contact = a + ab*d
+    }
+    return linalg.length2(contact - p), contact
 }
