@@ -1,6 +1,5 @@
 package ngui
 
-import "core:fmt"
 import rl "vendor:raylib"
 
 Graph :: struct {
