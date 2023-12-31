@@ -305,8 +305,6 @@ contact_point_polygons :: proc(a_center, b_center: rl.Vector2,
             cp1 = contact
             count = 1
         }
-        if sq_dist < min_sq_dist {
-        }
     }
 
     for p in b_verts do for va, j in a_verts {
