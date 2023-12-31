@@ -108,7 +108,6 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
         accel := body.force * body.inv_mass
         body.vel += accel * dt
         body.vel *= 1 - FRICTION * FRICTION
-        // body.vel -= body.vel * FRICTION * dt
         defer body.force = 0
 
         if length := linalg.length(body.vel); length > MAX_SPEED {
@@ -117,8 +116,6 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
 
         if body.vel     != 0 do move(&body, body.vel * dt)
         if body.rot_vel != 0 do rotate(&body, body.rot_vel * dt)
-
-        // body.vel -= body.vel * FRICTION * dt
 
         if      body.pos.x < -bounds.x do body.pos.x =  bounds.x
         else if body.pos.x >  bounds.x do body.pos.x = -bounds.x
@@ -168,15 +165,64 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
 
     // Collision resolution.
     for hit in contacts {
-        a_body, b_body := hit.a_body, hit.b_body
+        resolve_collision(hit)
+    }
+}
 
-        e := min(a_body.restitution, b_body.restitution) // Elasticity
-        rel_vel := (b_body.vel - a_body.vel)
-        j := -(1 + e) * linalg.dot(rel_vel, hit.normal)
-        j /= a_body.inv_mass + b_body.inv_mass
+resolve_collision :: proc(hit: Manifold) {
+    a, b := hit.a_body, hit.b_body
+    e := min(a.restitution, b.restitution) // Elasticity
 
-        a_body.vel -= j * a_body.inv_mass * hit.normal
-        b_body.vel += j * b_body.inv_mass * hit.normal
+    contacts := [2]rl.Vector2{hit.contact1, hit.contact2}
+
+    // Written to by first loop.
+    ra_list, rb_list, impulses: [2]rl.Vector2
+
+    // For each contact point get linear and angular impulses to apply to colliding bodies.
+    for i in 0..<hit.contact_count {
+        ra := contacts[i] - a.pos
+        rb := contacts[i] - b.pos
+
+        // Save these for the resolution loop.
+        ra_list[i] = ra
+        rb_list[i] = rb
+
+        ra_perp := rl.Vector2{-ra.y, ra.x}
+        rb_perp := rl.Vector2{-rb.y, rb.x}
+
+        // Angular linear velocities.
+        a_ang_lin_vel := ra_perp * a.rot_vel
+        b_ang_lin_vel := rb_perp * b.rot_vel
+
+        rel_vel := (b.vel + b_ang_lin_vel) - (a.vel + a_ang_lin_vel)
+        contact_vel_mag := linalg.dot(rel_vel, hit.normal)
+        if contact_vel_mag > 0 {
+            continue
+        }
+
+        ra_perp_dot_n := linalg.dot(ra_perp, hit.normal)
+        rb_perp_dot_n := linalg.dot(rb_perp, hit.normal)
+
+        // Impulse
+        j := -(1 + e) * contact_vel_mag
+        j /= a.inv_mass + b.inv_mass +
+            (ra_perp_dot_n * ra_perp_dot_n) * a.inv_rot_inertia +
+            (rb_perp_dot_n * rb_perp_dot_n) * b.inv_rot_inertia
+
+        j /= f32(hit.contact_count) // Distribute force evenly amongst contacts.
+
+        impulses[i] = j * hit.normal // Don't apply impulses until all have been calculated.
+    }
+
+    // Apply impulses to bodies.
+    for i in 0..<hit.contact_count {
+        impulse := impulses[i]
+
+        a.vel -= impulse * a.inv_mass
+        b.vel += impulse * b.inv_mass
+
+        a.rot_vel -= linalg.cross(ra_list[i], impulse) * a.inv_rot_inertia
+        b.rot_vel += linalg.cross(rb_list[i], impulse) * b.inv_rot_inertia
     }
 }
 

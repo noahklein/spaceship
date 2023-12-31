@@ -25,6 +25,8 @@ Body :: struct{
     shape: Shape,
     aabb: rl.Rectangle,
 
+    static_friction, dynamic_friction: f32,
+
     vertices:    [dynamic]rl.Vector2, // Circles have no vertices.
     transformed: [dynamic]rl.Vector2,
     needs_transform_update: bool,
@@ -47,6 +49,9 @@ new_circle :: proc(pos: rl.Vector2, radius, density: f32, is_static: bool) -> Bo
         rot_inertia = rot_inertia,
         inv_rot_inertia = 1 / rot_inertia if !is_static else 0,
 
+        static_friction = 0.6,
+        dynamic_friction = 0.4,
+
         density = density,
         restitution = 1,
         shape = Circle{ radius },
@@ -68,6 +73,9 @@ new_box :: proc(pos: rl.Vector2, size: rl.Vector2, density: f32, is_static: bool
         inv_mass = 1 / mass if !is_static else 0,
         rot_inertia = rot_inertia,
         inv_rot_inertia = 1 / rot_inertia if !is_static else 0,
+
+        static_friction = 0.6,
+        dynamic_friction = 0.4,
 
         density = density,
         restitution = 1,
@@ -111,9 +119,9 @@ body_get_vertices :: proc(body: ^Body) -> []rl.Vector2 {
 body_rot_inertia :: proc(mass: f32, shape: Shape) -> f32 {
     switch s in shape {
     case Circle:
-        return (1/2) * mass * s.radius*s.radius
+        return mass * s.radius*s.radius / 2
     case Box:
-        return (1/12) * mass * (s.size.x*s.size.x + s.size.y*s.size.y)
+        return mass * (s.size.x*s.size.x + s.size.y*s.size.y) / 12
     }
 
     panic("Impossible: invalid shape in body_rot_inertia")
