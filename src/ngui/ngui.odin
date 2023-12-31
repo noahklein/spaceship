@@ -27,6 +27,10 @@ NGui :: struct {
     hovered_panel: cstring,
     panel_row, panel_column: int,
     column_widths: []f32,
+
+    // Graph state
+    graphs: map[cstring]Graph,
+    graph_curr: cstring,
 }
 
 init :: proc() {
@@ -38,6 +42,12 @@ deinit :: proc() {
         strings.builder_destroy(&ti.buf)
     }
     delete(state.text_inputs)
+
+    for _, graph in state.graphs {
+        for _, line in graph.lines do delete(line.points)
+        delete(graph.lines)
+    }
+    delete(state.graphs)
 }
 
 update :: proc() {

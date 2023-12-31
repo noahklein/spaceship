@@ -75,8 +75,6 @@ main :: proc() {
         defer free_all(context.temp_allocator)
 
         dt := rl.GetFrameTime() * timescale
-        // cam_velocity := get_cam_movement()
-        // camera.target += cam_velocity * dt
 
         if rlutil.profile_begin("physics") {
             player.update(dt)
@@ -119,15 +117,6 @@ main :: proc() {
 
 screen_size :: #force_inline proc() -> rl.Vector2 {
     return { f32(rl.GetScreenWidth()), f32(rl.GetScreenHeight()) }
-}
-
-get_cam_movement :: proc() -> (dv: rl.Vector2) {
-    SPEED :: 10
-    if      rl.IsKeyDown(.LEFT)  || rl.IsKeyDown(.A) do dv.x -= SPEED
-    else if rl.IsKeyDown(.RIGHT) || rl.IsKeyDown(.D) do dv.x += SPEED
-    if      rl.IsKeyDown(.UP)    || rl.IsKeyDown(.W) do dv.y -= SPEED
-    else if rl.IsKeyDown(.DOWN)  || rl.IsKeyDown(.S) do dv.y += SPEED
-    return dv
 }
 
 rand_color :: proc(low := rl.BLACK, high := rl.WHITE) -> rl.Color {

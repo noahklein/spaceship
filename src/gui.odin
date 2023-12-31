@@ -42,15 +42,14 @@ draw_gui :: proc(camera: ^rl.Camera2D) {
 
         }
 
-        total_prof := rlutil.profile_get("total")
-        if ngui.flex_row({0.5, 0.5}) {
-            physics_prof := rlutil.profile_get("physics")
-            physics_pct := 100 * dur(physics_prof.stopwatch) / dur(total_prof.stopwatch)
-            ngui.slider(&physics_pct, 0, 100, "Physics")
+        draw_prof := rlutil.profile_get("draw")
+        physics_prof := rlutil.profile_get("physics")
 
-            draw_prof := rlutil.profile_get("draw")
-            draw_pct := 100 * dur(draw_prof.stopwatch) / dur(total_prof.stopwatch)
-            ngui.slider(&draw_pct, 0, 100, "Draw")
+        if ngui.flex_row({1}) {
+            if ngui.graph_begin("Time", 100, lower = 0, upper = f32(time.Second) / 120) {
+                ngui.graph_line("Physics", dur(physics_prof.stopwatch), rl.WHITE)
+                ngui.graph_line("Draw", dur(draw_prof.stopwatch), rl.BLUE)
+            }
         }
     }
 }
