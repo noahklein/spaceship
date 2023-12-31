@@ -53,17 +53,10 @@ graph_line :: proc(line_label: cstring, value: f32, color: rl.Color) {
 }
 
 graph_draw_rect :: proc(graph: Graph, rect: rl.Rectangle) {
-
-    legend_rect := rect
-    legend_rect.height = FONT * 1.2
-    legend_rect.y = rect.y + rect.height - legend_rect.height
-
     line_rect := rect
-    line_rect.height -= legend_rect.height
 
     hover := hovered(line_rect)
     rl.DrawRectangleRec(line_rect, dark_color(hover, false))
-    rl.DrawRectangleRec(legend_rect, rl.DARKGRAY)
 
     for line_label, line in graph.lines {
         inv_line_length := f32(1) / f32(len(line.points))
@@ -94,23 +87,33 @@ graph_draw_rect :: proc(graph: Graph, rect: rl.Rectangle) {
         }
     }
 
+    LEGEND_FONT :: FONT / 2
+    legend_rect := rect
+    legend_rect.height = FONT * 1.2
+    legend_rect.width /= 2
+
+    legend_rect.width = 0
+    for label in graph.lines {
+        legend_rect.width += f32(rl.MeasureText(label, LEGEND_FONT)) + 2 + legend_rect.height + 8
+    }
+    rl.DrawRectangleRec(legend_rect, {40, 40, 40, 150}) // Legend background rect.
+
     // Draw legend.
-    line_i: f32
+    x: f32 = legend_rect.x
     for label, line in graph.lines {
-        defer line_i += 1
+        width := f32(rl.MeasureText(label, LEGEND_FONT)) + 2 + legend_rect.height
 
         label_rect := legend_rect
+        label_rect.width = width
         label_rect.width /= f32(len(graph.lines))
-        label_rect.x = label_rect.width * line_i
+        label_rect.x = x
+        x += width + 8
 
         color_rect := label_rect
         color_rect.width = color_rect.height
-
         rl.DrawRectangleRec(padding(color_rect, 3), line.color)
 
         label_rect.x += color_rect.width
         text_rect(label_rect, label, color = line.color)
-
-
     }
 }
