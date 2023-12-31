@@ -23,36 +23,36 @@ dt_acc: f32
 
 bodies:  [dynamic]Body
 colors:  [dynamic]rl.Color
-borders: [dynamic]rl.Color
 
+collision_pairs : [dynamic][2]int // Broad-phase
 contacts: [dynamic]Manifold
 
 init :: proc(size: int, bounds: rl.Vector2) {
     reserve(&bodies, size)
     reserve(&colors, size)
-    reserve(&borders, size)
-    reserve(&contacts, size * (size - 1))
+    reserve(&contacts, size)
+    reserve(&collision_pairs, size)
 
     player_body := new_circle(0, 2, 1, false)
-    append_body(player_body, rl.WHITE, rl.ORANGE)
+    append_body(player_body, rl.WHITE)
 
     floor_body := new_box({0,  0.8*bounds.y}, {2 * bounds.x, 0.2*bounds.y}, 1, true)
-    append_body(floor_body, rl.GREEN, rl.WHITE)
+    append_body(floor_body, rl.GREEN)
 
     slant_right := new_box({-100, -10}, {bounds.x, 0.2*bounds.y}, 1, true)
     rotate(&slant_right, 20*rl.DEG2RAD)
-    append_body(slant_right, rl.GREEN, rl.WHITE)
+    append_body(slant_right, rl.GREEN)
 
     slant_left := new_box({110, -15}, {bounds.x, 0.2*bounds.y}, 1, true)
     rotate(&slant_left, -20*rl.DEG2RAD)
-    append_body(slant_left, rl.GREEN, rl.WHITE)
+    append_body(slant_left, rl.GREEN)
 }
 
 deinit :: proc() {
     delete(bodies)
     delete(colors)
-    delete(borders)
     delete(contacts)
+    delete(collision_pairs)
 
     for body in bodies {
         delete(body.vertices)
@@ -63,19 +63,18 @@ deinit :: proc() {
 draw :: proc(debug: bool) {
     for &body, i in bodies {
         color := colors[i]
-        border_color := borders[i] if body.vel != 0 else rl.YELLOW
 
         switch shape in body.shape {
         case Circle:
             rl.DrawCircleV(body.pos, shape.radius, color)
-            draw_circle_outline(body.pos, shape.radius, border_color)
+            draw_circle_outline(body.pos, shape.radius, rl.WHITE)
         case Box:
             vs := body_get_vertices(&body)
             // Vertices are clockwise from top-left.
             rl.DrawTriangle(vs[0], vs[1], vs[2], color)
             rl.DrawTriangle(vs[0], vs[2], vs[3], color)
 
-            rlutil.DrawPolygonLines(vs, border_color)
+            rlutil.DrawPolygonLines(vs, rl.WHITE)
         }
 
         if debug {
@@ -130,27 +129,35 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
     // Update AABBs for broad-phase collision.
     for &b in bodies do b.aabb = get_aabb(&b)
 
-    // Collision detection.
-    clear(&contacts)
-    for &a_body, i in bodies[:len(bodies)-1] do for &b_body in bodies[i+1:] {
-        // Broad-phase check to early-exit.
+    // Broad-phase collision detection.
+    clear(&collision_pairs)
+    for i in 0..<len(bodies)-1 do for j in i+1..<len(bodies) {
+        // Broad-phase checks to early-exit.
+        a_body, b_body := bodies[i], bodies[j]
+        if a_body.is_static && b_body.is_static do continue
         if !rl.CheckCollisionRecs(a_body.aabb, b_body.aabb) do continue
 
+        append(&collision_pairs, [2]int{i, j})
+    }
+
+    // Narrow-phase collision detection.
+    clear(&contacts)
+    for pair in collision_pairs {
+        a_body, b_body := &bodies[pair.x], &bodies[pair.y]
         // Actually check collision for real.
-        hit := collision_check(&a_body, &b_body) or_continue
+        hit := collision_check(a_body, b_body) or_continue
 
         // Move bodies to resolve collision; static bodies never move.
-        if a_body.is_static && b_body.is_static do continue
-        else if a_body.is_static do move(&b_body, hit.normal*hit.depth)
-        else if b_body.is_static do move(&a_body, -hit.normal*hit.depth)
+        if      a_body.is_static do move(b_body, hit.normal*hit.depth)
+        else if b_body.is_static do move(a_body, -hit.normal*hit.depth)
         else {
-            move(&a_body, -hit.normal*hit.depth / 2)
-            move(&b_body,  hit.normal*hit.depth / 2)
+            move(a_body, -hit.normal*hit.depth / 2)
+            move(b_body,  hit.normal*hit.depth / 2)
         }
 
-        cp1, cp2, count := find_contact_points(&a_body, &b_body)
+        cp1, cp2, count := find_contact_points(a_body, b_body)
         append(&contacts, Manifold{
-            a_body = &a_body, b_body = &b_body,
+            a_body = a_body, b_body = b_body,
             normal = hit.normal,
             depth = hit.depth,
             contact1 = cp1,
@@ -173,10 +180,9 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
     }
 }
 
-append_body :: #force_inline proc(body: Body, color, border: rl.Color) {
+append_body :: #force_inline proc(body: Body, color: rl.Color) {
     append(&bodies, body)
     append(&colors, color)
-    append(&borders, border)
 }
 
 rand_color :: proc(low := rl.BLACK, high := rl.WHITE) -> rl.Color {

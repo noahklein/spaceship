@@ -91,13 +91,13 @@ main :: proc() {
             }
 
             body := physics.new_box(cursor, size, 1, false)
-            physics.append_body(body, rand_color({100, 100, 100, 255}), rl.WHITE)
+            physics.append_body(body, rand_color({100, 100, 100, 255}))
         } else if !ngui.want_mouse() && rl.IsMouseButtonPressed(.RIGHT) {
             // density  := physics.random(1, 2)
             density := f32(10)
             radius := physics.random(2, 5)
             body := physics.new_circle(cursor, radius, density, false)
-            physics.append_body(body, rand_color({100, 100, 100, 255}), rl.WHITE)
+            physics.append_body(body, rand_color({100, 100, 100, 255}))
         }
 
         rlutil.profile_begin("draw")
