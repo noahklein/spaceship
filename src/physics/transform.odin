@@ -25,15 +25,22 @@ transform_apply :: #force_inline proc(v: rl.Vector2, t: Transform) -> rl.Vector2
 
 move_to :: #force_inline proc(body: ^Body, pos: rl.Vector2) {
     body.pos = pos
-    body.needs_transform_update = true
+    set_needs_transform(body)
 }
 
 move :: #force_inline proc(body: ^Body, delta: rl.Vector2) {
     body.pos += delta
-    body.needs_transform_update = true
+    set_needs_transform(body)
 }
 
 rotate :: #force_inline proc(body: ^Body, angle: f32) {
     body.rot += angle
-    body.needs_transform_update = true
+    set_needs_transform(body)
+}
+
+@(private="file")
+set_needs_transform :: #force_inline proc(body: ^Body) {
+    if polygon, ok := &body.shape.(Polygon); ok {
+        polygon.needs_transform_update = true
+    }
 }

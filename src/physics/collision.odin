@@ -23,28 +23,28 @@ collision_check :: proc(a, b: ^Body) -> (Hit, bool) {
         return {}, false
     }
 
-    switch as in a.shape {
+    switch &as in a.shape {
     case Circle:
-        switch bs in b.shape {
+        switch &bs in b.shape {
         case Circle: return collide_circles(a.pos, b.pos, as.radius, bs.radius)
-        case Box:
-            verts := body_get_vertices(b)
+        case Polygon:
+            verts := body_get_vertices(&bs, b.pos, b.rot)
             hit, ok := collide_polygon_circle(verts, b.pos, a.pos, as.radius)
             hit.normal = -hit.normal
             return hit, ok
 
         }
-    case Box:
-        switch bs in b.shape {
+    case Polygon:
+        switch &bs in b.shape {
         case Circle:
-            verts := body_get_vertices(a)
+            verts := body_get_vertices(&as, a.pos, a.rot)
             hit, ok := collide_polygon_circle(verts, a.pos, b.pos, bs.radius)
             // hit.normal = -hit.normal
             return hit, ok
 
-        case Box:
-            a_verts := body_get_vertices(a)
-            b_verts := body_get_vertices(b)
+        case Polygon:
+            a_verts := body_get_vertices(&as, a.pos, a.rot)
+            b_verts := body_get_vertices(&bs, b.pos, b.rot)
             return collide_polygons(a_verts, b_verts, a.pos, b.pos)
         }
     }
@@ -184,12 +184,12 @@ project_circle :: proc(center: rl.Vector2, radius: f32, axis: rl.Vector2) -> (lo
 get_aabb :: proc(b: ^Body) -> rl.Rectangle {
     rmin: rl.Vector2 = 1e9
     rmax: rl.Vector2 = -1e9
-    switch s in b.shape {
+    switch &s in b.shape {
         case Circle:
             rmin = b.pos - s.radius
             rmax = b.pos + s.radius
-        case Box:
-            for v in body_get_vertices(b) {
+        case Polygon:
+            for v in body_get_vertices(&s, b.pos, b.rot) {
                 rmin = linalg.min(rmin, v)
                 rmax = linalg.max(rmax, v)
             }
@@ -218,24 +218,23 @@ polygon_closest_point :: #force_inline proc(circle_center: rl.Vector2, verts: []
     return
 }
 
-find_contact_points :: proc(a_body, b_body: ^Body) -> (contact1, contact2: rl.Vector2, count: int) {
-    switch as in a_body.shape {
+find_contact_points :: proc(a, b: ^Body) -> (contact1, contact2: rl.Vector2, count: int) {
+    switch &as in a.shape {
     case Circle:
-        switch bs in b_body.shape {
-        case Circle: return contact_point_circles(a_body.pos, b_body.pos, as.radius), {}, 1
-        case Box:
-            b_vertices := body_get_vertices(b_body)
-            return contact_point_circle_polygon(a_body.pos, b_body.pos, as.radius, b_vertices), {}, 1
+        switch &bs in b.shape {
+        case Circle: return contact_point_circles(a.pos, b.pos, as.radius), {}, 1
+        case Polygon:
+            b_vertices := body_get_vertices(&bs, b.pos, b.rot)
+            return contact_point_circle_polygon(a.pos, b.pos, as.radius, b_vertices), {}, 1
         }
-    case Box:
-        switch bs in b_body.shape {
+    case Polygon:
+        a_verts := body_get_vertices(&as, a.pos, a.rot)
+        switch &bs in b.shape {
         case Circle:
-            a_vertices := body_get_vertices(a_body)
-            return contact_point_circle_polygon(b_body.pos, a_body.pos, bs.radius, a_vertices), {}, 1
-        case Box:
-            a_verts := body_get_vertices(a_body)
-            b_verts := body_get_vertices(b_body)
-            return contact_point_polygons(a_body.pos, b_body.pos, a_verts, b_verts)
+            return contact_point_circle_polygon(b.pos, a.pos, bs.radius, a_verts), {}, 1
+        case Polygon:
+            b_verts := body_get_vertices(&bs, b.pos, b.rot)
+            return contact_point_polygons(a.pos, b.pos, a_verts, b_verts)
         }
     }
 

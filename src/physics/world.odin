@@ -54,8 +54,11 @@ deinit :: proc() {
     delete(collision_pairs)
 
     for body in bodies {
-        delete(body.vertices)
-        delete(body.transformed)
+        polygon, ok := body.shape.(Polygon)
+        if !ok do continue
+
+        delete(polygon.vertices)
+        delete(polygon.transformed)
     }
 }
 
@@ -63,7 +66,7 @@ draw :: proc(debug: bool) {
     for &body, i in bodies {
         color := colors[i]
 
-        switch shape in body.shape {
+        switch &shape in body.shape {
         case Circle:
             rl.DrawCircleV(body.pos, shape.radius, color)
             draw_circle_outline(body.pos, shape.radius, rl.WHITE)
@@ -74,8 +77,8 @@ draw :: proc(debug: bool) {
             va = transform_apply(va, t)
             vb = transform_apply(vb, t)
             rl.DrawLineV(va, vb, rl.WHITE)
-        case Box:
-            vs := body_get_vertices(&body)
+        case Polygon:
+            vs := body_get_vertices(&shape, body.pos, body.rot)
             // Vertices are clockwise from top-left.
             rl.DrawTriangle(vs[0], vs[1], vs[2], color)
             rl.DrawTriangle(vs[0], vs[2], vs[3], color)
@@ -235,10 +238,10 @@ resolve_collision :: proc(hit: Manifold) {
 
     // =========
     // Friction
-    s_fric :=  (a.static_friction + b.static_friction) / 2
-    d_fric := (a.dynamic_friction + b.static_friction) / 2
+    s_fric := (a.static_friction  + b.static_friction) / 2
+    d_fric := (a.dynamic_friction + b.dynamic_friction) / 2
 
-    // Same thing again, for each contact point calcualte friction impulses.
+    // Same thing again, for each contact point calculate friction impulses.
     friction_impulses: [2]rl.Vector2
     for i in 0..<hit.contact_count {
         ra, rb := ra_list[i], rb_list[i]
