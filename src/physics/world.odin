@@ -68,6 +68,13 @@ draw :: proc(debug: bool) {
         case Circle:
             rl.DrawCircleV(body.pos, shape.radius, color)
             draw_circle_outline(body.pos, shape.radius, rl.WHITE)
+
+            va : rl.Vector2
+            vb : rl.Vector2 = {shape.radius, 0}
+            t := transform_init(body.pos, body.rot)
+            va = transform_apply(va, t)
+            vb = transform_apply(vb, t)
+            rl.DrawLineV(va, vb, rl.WHITE)
         case Box:
             vs := body_get_vertices(&body)
             // Vertices are clockwise from top-left.
@@ -169,21 +176,23 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
     }
 }
 
+// This function is a big mess to avoid recalculating certain things.
 resolve_collision :: proc(hit: Manifold) {
     a, b := hit.a_body, hit.b_body
     e := min(a.restitution, b.restitution) // Elasticity
 
     contacts := [2]rl.Vector2{hit.contact1, hit.contact2}
 
-    // Written to by first loop.
+    // Cached values for future steps. Written to by first loop.
     ra_list, rb_list, impulses: [2]rl.Vector2
+    j_list: [2]f32
 
     // For each contact point get linear and angular impulses to apply to colliding bodies.
     for i in 0..<hit.contact_count {
         ra := contacts[i] - a.pos
         rb := contacts[i] - b.pos
 
-        // Save these for the resolution loop.
+        // Save these for the resolution and friction loops.
         ra_list[i] = ra
         rb_list[i] = rb
 
@@ -211,12 +220,66 @@ resolve_collision :: proc(hit: Manifold) {
 
         j /= f32(hit.contact_count) // Distribute force evenly amongst contacts.
 
+        j_list[i] = j // Retained for friction loop.
         impulses[i] = j * hit.normal // Don't apply impulses until all have been calculated.
     }
 
     // Apply impulses to bodies.
     for i in 0..<hit.contact_count {
         impulse := impulses[i]
+
+        a.vel -= impulse * a.inv_mass
+        b.vel += impulse * b.inv_mass
+
+        a.rot_vel -= linalg.cross(ra_list[i], impulse) * a.inv_rot_inertia
+        b.rot_vel += linalg.cross(rb_list[i], impulse) * b.inv_rot_inertia
+    }
+
+    // =========
+    // Friction
+    s_fric :=  (a.static_friction + b.static_friction) / 2
+    d_fric := (a.dynamic_friction + b.static_friction) / 2
+
+    // Same thing again, for each contact point calcualte friction impulses.
+    friction_impulses: [2]rl.Vector2
+    for i in 0..<hit.contact_count {
+        ra, rb := ra_list[i], rb_list[i]
+        ra_perp := rl.Vector2{-ra.y, ra.x}
+        rb_perp := rl.Vector2{-rb.y, rb.x}
+
+        // Angular linear velocities.
+        a_ang_lin_vel := ra_perp * a.rot_vel
+        b_ang_lin_vel := rb_perp * b.rot_vel
+
+        rel_vel := (b.vel + b_ang_lin_vel) - (a.vel + a_ang_lin_vel)
+        tangent := rel_vel - linalg.dot(rel_vel, hit.normal) * hit.normal
+        if rlutil.nearly_eq_vector(tangent, 0) do continue
+        tangent = linalg.normalize(tangent)
+
+        ra_perp_dot_t := linalg.dot(ra_perp, tangent)
+        rb_perp_dot_t := linalg.dot(rb_perp, tangent)
+
+        // Friction impulse
+        jt := -linalg.dot(rel_vel, tangent)
+        jt /= a.inv_mass + b.inv_mass +
+            (ra_perp_dot_t * ra_perp_dot_t) * a.inv_rot_inertia +
+            (rb_perp_dot_t * rb_perp_dot_t) * b.inv_rot_inertia
+
+        jt /= f32(hit.contact_count) // Distribute force evenly amongst contacts.
+
+        j := j_list[i]
+
+        // Coulomb's law
+        if abs(jt) <= j*s_fric {
+            friction_impulses[i] = jt * tangent
+        } else {
+            friction_impulses[i] = -j * tangent * d_fric
+        }
+    }
+
+    // Apply friction to bodies.
+    for i in 0..<hit.contact_count {
+        impulse := friction_impulses[i]
 
         a.vel -= impulse * a.inv_mass
         b.vel += impulse * b.inv_mass
