@@ -41,13 +41,11 @@ draw_gui :: proc(camera: ^rl.Camera2D) {
 
         }
 
-        total_prof := rlutil.profile_get("total")
         draw_prof := rlutil.profile_get("draw")
         physics_prof := rlutil.profile_get("physics")
 
         if ngui.flex_row({1}) {
             if ngui.graph_begin("Time", 250, lower = 0, upper = f32(time.Second) / 120) {
-                ngui.graph_line("Total", dur(total_prof.stopwatch), rl.WHITE)
                 ngui.graph_line("Physics", dur(physics_prof.stopwatch), rl.BLUE)
                 ngui.graph_line("Draw", dur(draw_prof.stopwatch), rl.RED)
             }

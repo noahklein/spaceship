@@ -67,11 +67,9 @@ main :: proc() {
     // bg_texture := gen_star_bg_texture(1000, 1000)
     // bg_pos := rl.Vector2{-f32(bg_texture.width) / 2, -f32(bg_texture.height) / 2}
 
-    rl.SetTargetFPS(120)
+    rl.SetTargetFPS(60)
 
     for !rl.WindowShouldClose() {
-        rlutil.profile_begin("total")
-
         defer free_all(context.temp_allocator)
 
         dt := rl.GetFrameTime() * timescale
