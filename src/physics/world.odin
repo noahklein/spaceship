@@ -15,7 +15,6 @@ MAX_DENSITY :: 21.4 // Density of platinum
 CELL_SIZE :: 1
 MAX_SPEED :: 64
 
-FRICTION: f32 = 0.01
 GRAVITY := rl.Vector2{0, 9.8}
 
 FIXED_DT :: 1.0 / 240.0
@@ -114,7 +113,6 @@ fixed_update :: proc(dt: f32, bounds: rl.Vector2) {
         body.force += GRAVITY * body.mass
         accel := body.force * body.inv_mass
         body.vel += accel * dt
-        body.vel *= 1 - FRICTION * FRICTION
         defer body.force = 0
 
         if length := linalg.length(body.vel); length > MAX_SPEED {

@@ -75,6 +75,7 @@ main :: proc() {
         defer free_all(context.temp_allocator)
 
         dt := rl.GetFrameTime() * timescale
+        dt = min(dt, 0.5)
 
         if rlutil.profile_begin("physics") {
             player.update(dt)
@@ -82,7 +83,12 @@ main :: proc() {
         }
 
         cursor := rl.GetScreenToWorld2D(rl.GetMousePosition(), camera)
-        if !ngui.want_mouse() && rl.IsMouseButtonPressed(.LEFT) {
+        should_fire :: proc(button: rl.MouseButton) -> bool {
+            rapid_fire := rl.IsKeyDown(.LEFT_SHIFT) && rl.IsMouseButtonDown(button)
+            return rl.IsMouseButtonPressed(button) || rapid_fire
+        }
+
+        if !ngui.want_mouse() && should_fire(.LEFT) {
             size := rl.Vector2{
                 physics.random(5, 10),
                 physics.random(5, 10),
@@ -90,7 +96,7 @@ main :: proc() {
 
             body := physics.new_box(cursor, size, 1, false)
             physics.append_body(body, rand_color({100, 100, 100, 255}))
-        } else if !ngui.want_mouse() && rl.IsMouseButtonPressed(.RIGHT) {
+        } else if !ngui.want_mouse() && should_fire(.RIGHT) {
             // density  := physics.random(1, 2)
             density := f32(10)
             radius := physics.random(2, 5)
