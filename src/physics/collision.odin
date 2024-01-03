@@ -107,7 +107,6 @@ collide_polygon_circle :: proc(poly: []rl.Vector2, poly_center, center: rl.Vecto
     }
 
     return {depth = depth, normal = normal}, true
-
 }
 
 
@@ -307,7 +306,7 @@ contact_point_polygons :: proc(a_center, b_center: rl.Vector2,
     }
 
     for p in b_verts do for va, j in a_verts {
-        vb := a_verts[(j+1) % len(b_verts)]
+        vb := a_verts[(j+1) % len(a_verts)]
 
         sq_dist, contact := point_segment_distance(p, va, vb)
 
